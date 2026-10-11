@@ -9,12 +9,26 @@ export class CannonAudio {
     this.buffers = null;
     this._muted = false;
     this._voices = new Set();
+    this._paused = false;
+    this._lastAnnouncement = -Infinity;
+    this._speech = globalThis.speechSynthesis || null;
+    this._speechVoice = null;
+    this._utterance = null;
+    this._refreshSpeechVoice = () => {
+      try {
+        this._speechVoice = this._speech?.getVoices().find(voice =>
+          /^ja(?:[-_]|$)/i.test(voice.lang)) || null;
+      } catch { this._speechVoice = null; }
+    };
+    this._speech?.addEventListener?.('voiceschanged', this._refreshSpeechVoice);
+    this._refreshSpeechVoice();
   }
 
   get muted() { return this._muted; }
 
   /** Call directly from the Start/Sound button's click or pointer handler. */
   async unlock() {
+    if (this._paused) return false;
     try {
       if (!this.context || this.context.state === 'closed') {
         const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
@@ -45,6 +59,9 @@ export class CannonAudio {
           fire: this._makeFire(context),
           hull: this._makeImpact(context, false),
           water: this._makeImpact(context, true),
+          sinking: this._makeSinking(context),
+          beam: this._makeEnergy(context, false),
+          special: this._makeEnergy(context, true),
         };
       }
 
@@ -55,7 +72,7 @@ export class CannonAudio {
       const primer = context.createBufferSource();
       primer.buffer = context.createBuffer(1, 1, context.sampleRate);
       primer.connect(this.master);
-      primer.onended = () => primer.disconnect();
+      this._track(primer, [primer]);
       primer.start();
       await resumed;
       return context.state === 'running';
@@ -67,6 +84,7 @@ export class CannonAudio {
 
   setMuted(value) {
     this._muted = Boolean(value);
+    if (this._muted) this._cancelAnnouncement();
     if (this.context && this.master && this.context.state !== 'closed') {
       const now = this.context.currentTime;
       this.master.gain.cancelScheduledValues(now);
@@ -82,7 +100,114 @@ export class CannonAudio {
     this._play(water ? 'water' : 'hull', pan, water ? 0.58 : 0.72, 0.17);
   }
 
+  /** Suspend in the background; call pause(false) from a Resume button gesture. */
+  pause(value) {
+    this._paused = Boolean(value);
+    if (this._paused) {
+      this._cancelAnnouncement();
+      if (this.context && this.context.state === 'running') {
+        return this.context.suspend().catch(() => false);
+      }
+      return Promise.resolve(false);
+    }
+    return this.unlock();
+  }
+
+  sinking(pan = 0) {
+    return this._play('sinking', pan, 0.82, 0.28);
+  }
+
+  beam(pan = 0) {
+    return this._play('beam', pan, 0.93, 0.24);
+  }
+
+  special() {
+    return this._play('special', 0, 1.1, 0.32);
+  }
+
+  /** Standard international Morse; the default encodes S U N K, not a loop. */
+  morse(message = 'SUNK') {
+    const context = this.context;
+    if (!context || context.state !== 'running' || this._muted || this._paused) return false;
+    const alphabet = {
+      A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.',
+      H: '....', I: '..', J: '.---', K: '-.-', L: '.-..', M: '--', N: '-.',
+      O: '---', P: '.--.', Q: '--.-', R: '.-.', S: '...', T: '-', U: '..-',
+      V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..',
+      0: '-----', 1: '.----', 2: '..---', 3: '...--', 4: '....-',
+      5: '.....', 6: '-....', 7: '--...', 8: '---..', 9: '----.',
+      '.': '.-.-.-', ',': '--..--', '?': '..--..', '/': '-..-.',
+      '=': '-...-', '+': '.-.-.', '-': '-....-', '@': '.--.-.',
+    };
+    const words = String(message).toUpperCase().slice(0, 40).trim().split(/\s+/)
+      .map(word => [...word].filter(letter => alphabet[letter])).filter(word => word.length);
+    if (!words.length) return false;
+    const unit = 0.067;
+    const start = context.currentTime + 0.075;
+    const oscillator = context.createOscillator();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 720;
+    const envelope = context.createGain();
+    envelope.gain.setValueAtTime(0, context.currentTime);
+    oscillator.connect(envelope);
+    envelope.connect(this.compressor);
+    let cursor = start;
+    words.forEach((letters, wordIndex) => {
+      letters.forEach((letter, letterIndex) => {
+        [...alphabet[letter]].forEach((symbol, symbolIndex) => {
+          const duration = (symbol === '.' ? 1 : 3) * unit;
+          envelope.gain.setValueAtTime(0, cursor);
+          envelope.gain.linearRampToValueAtTime(0.19, cursor + 0.003);
+          envelope.gain.setValueAtTime(0.19, cursor + duration - 0.004);
+          envelope.gain.linearRampToValueAtTime(0, cursor + duration);
+          cursor += duration;
+          if (symbolIndex < alphabet[letter].length - 1) cursor += unit;
+        });
+        if (letterIndex < letters.length - 1) cursor += 3 * unit;
+      });
+      if (wordIndex < words.length - 1) cursor += 7 * unit;
+    });
+    this._track(oscillator, [oscillator, envelope]);
+    oscillator.start(start);
+    oscillator.stop(cursor + 0.025);
+    return true;
+  }
+
+  /** A device-installed Japanese voice is used when available. */
+  announce(text = '敵艦、沈没。') {
+    const context = this.context;
+    if (!this._speech || !globalThis.SpeechSynthesisUtterance || this._muted || this._paused
+      || !context || context.state !== 'running') return false;
+    const now = globalThis.performance?.now() ?? Date.now();
+    if (now - this._lastAnnouncement < 1200) return false;
+    try {
+      this._refreshSpeechVoice();
+      this._cancelAnnouncement();
+      const utterance = new globalThis.SpeechSynthesisUtterance(String(text));
+      utterance.lang = 'ja-JP';
+      utterance.rate = 0.88;
+      utterance.pitch = 0.8;
+      utterance.volume = 0.8;
+      if (this._speechVoice) utterance.voice = this._speechVoice;
+      const clear = () => { if (this._utterance === utterance) this._utterance = null; };
+      utterance.onend = utterance.onerror = clear;
+      this._utterance = utterance;
+      this._speech.speak(utterance);
+      this._lastAnnouncement = now;
+      return true;
+    } catch { this._utterance = null; return false; }
+  }
+
+  _cancelAnnouncement() {
+    if (this._utterance) {
+      try { this._speech?.cancel(); } catch { /* Speech is optional on a device. */ }
+      this._utterance = null;
+    }
+  }
+
   destroy() {
+    this._cancelAnnouncement();
+    this._speech?.removeEventListener?.('voiceschanged', this._refreshSpeechVoice);
     for (const voice of this._voices) {
       try { voice.source.stop(); } catch { /* Already ended. */ }
       for (const node of voice.nodes) {
@@ -99,7 +224,7 @@ export class CannonAudio {
 
   _play(name, pan, power, wetLevel) {
     const context = this.context;
-    if (!context || context.state !== 'running' || !this.buffers || this._muted || !power) return;
+    if (!context || context.state !== 'running' || !this.buffers || this._muted || this._paused || !power) return false;
     const source = context.createBufferSource();
     source.buffer = this.buffers[name];
     source.playbackRate.value = 0.975 + Math.random() * 0.05;
@@ -123,13 +248,21 @@ export class CannonAudio {
     send.connect(this.reverb);
     nodes.push(send);
 
+    this._track(source, nodes);
+    source.start();
+    return true;
+  }
+
+  _track(source, nodes) {
     const voice = { source, nodes };
     this._voices.add(voice);
     source.onended = () => {
       this._voices.delete(voice);
-      for (const node of nodes) node.disconnect();
+      for (const node of nodes) {
+        try { node.disconnect(); } catch { /* A teardown may have disposed it. */ }
+      }
     };
-    source.start();
+    return voice;
   }
 
   _makeFire(context) {
@@ -170,31 +303,115 @@ export class CannonAudio {
   }
 
   _makeImpact(context, water) {
-    const seconds = water ? 1.35 : 0.95;
+    const seconds = water ? 1.9 : 1.35;
     const rate = context.sampleRate;
     const buffer = context.createBuffer(1, Math.ceil(seconds * rate), rate);
     const samples = buffer.getChannelData(0);
     const random = this._noise(water ? 99183 : 65193);
-    const alpha = 1 - Math.exp(-2 * Math.PI * (water ? 950 : 3800) / rate);
-    let smooth = 0;
+    const alpha = 1 - Math.exp(-2 * Math.PI * (water ? 1700 : 4700) / rate);
+    const lowAlpha = 1 - Math.exp(-2 * Math.PI * 180 / rate);
+    let smooth = 0, low = 0;
+    const tau = 2 * Math.PI;
     for (let i = 0; i < samples.length; i++) {
       const t = i / rate;
-      smooth += alpha * (random() - smooth);
-      const onset = 1 - Math.exp(-t / (water ? 0.007 : 0.001));
+      const noise = random();
+      smooth += alpha * (noise - smooth);
+      low += lowAlpha * (noise - low);
+      const onset = 1 - Math.exp(-t / (water ? 0.005 : 0.001));
       if (water) {
-        const plunge = Math.sin(2 * Math.PI * (63 * t + 35 * 0.05 * (1 - Math.exp(-t / 0.05))));
-        samples[i] = onset * (plunge * Math.exp(-t / 0.18) * 0.44
-          + smooth * Math.exp(-t / 0.35) * 1.25);
+        const plunge = Math.sin(tau * (65 * t + 50 * 0.043 * (1 - Math.exp(-t / 0.043))));
+        const spray = (smooth - low) * Math.exp(-t / 0.39);
+        const falling = Math.max(0, t - 0.28);
+        const droplets = smooth * (0.6 + 0.4 * Math.sin(tau * 19 * t))
+          * (1 - Math.exp(-falling / 0.16)) * Math.exp(-falling / 0.4);
+        samples[i] = onset * (plunge * Math.exp(-t / 0.21) * 0.4
+          + spray * 1.15 + low * Math.exp(-t / 0.32) * 1.3 + droplets * 0.36);
       } else {
-        const clang = Math.sin(2 * Math.PI * 178 * t) * 0.25
-          + Math.sin(2 * Math.PI * 349 * t) * 0.17
-          + Math.sin(2 * Math.PI * 613 * t) * 0.095;
-        samples[i] = onset * (smooth * Math.exp(-t / 0.052) * 0.95
-          + clang * Math.exp(-t / 0.23));
+        const clang = Math.sin(tau * 178 * t) * 0.25
+          + Math.sin(tau * 349 * t) * 0.22 + Math.sin(tau * 613 * t) * 0.13
+          + Math.sin(tau * 1087 * t) * 0.07;
+        const crush = low * Math.exp(-t / 0.19) * 2.2;
+        samples[i] = onset * ((smooth - low) * Math.exp(-t / 0.04) * 1.15
+          + clang * Math.exp(-t / 0.31) + crush);
       }
-      samples[i] *= Math.min(1, (seconds - t) / 0.06);
+      samples[i] *= Math.min(1, (seconds - t) / 0.07);
     }
-    this._normalize(samples, water ? 0.65 : 0.72);
+    this._normalize(samples, water ? 0.75 : 0.86);
+    return buffer;
+  }
+
+  _makeSinking(context) {
+    const seconds = 3.4;
+    const rate = context.sampleRate;
+    const buffer = context.createBuffer(1, Math.ceil(seconds * rate), rate);
+    const samples = buffer.getChannelData(0);
+    const random = this._noise(71309);
+    const lowAlpha = 1 - Math.exp(-2 * Math.PI * 210 / rate);
+    const sprayAlpha = 1 - Math.exp(-2 * Math.PI * 1300 / rate);
+    let low = 0, spray = 0;
+    const tau = 2 * Math.PI;
+    for (let i = 0; i < samples.length; i++) {
+      const t = i / rate;
+      const noise = random();
+      low += lowAlpha * (noise - low);
+      spray += sprayAlpha * (noise - spray);
+      const onset = 1 - Math.exp(-t / 0.008);
+      const collapse = Math.exp(-t / 0.72);
+      const creakPhase = tau * (129 * t - 12 * t * t);
+      const creak = (Math.sin(creakPhase) + 0.28 * Math.sin(creakPhase * 2.83))
+        * (0.7 + 0.3 * Math.sin(tau * 7.7 * t)) * Math.exp(-t / 1.08);
+      const crash = (spray - low) * (Math.exp(-t / 0.045)
+        + Math.exp(-Math.abs(t - 0.48) / 0.07) * 0.42
+        + Math.exp(-Math.abs(t - 0.93) / 0.09) * 0.28);
+      const surge = (1 - Math.exp(-t / 0.22)) * Math.exp(-t / 1.12);
+      samples[i] = onset * (low * collapse * 2.6 + creak * 0.22 + crash * 0.75
+        + spray * surge * 0.95 + Math.sin(tau * 44 * t) * collapse * 0.19)
+        * Math.min(1, (seconds - t) / 0.2);
+    }
+    this._normalize(samples, 0.86);
+    return buffer;
+  }
+
+  _makeEnergy(context, special) {
+    const charge = special ? 1.03 : 0.15;
+    const seconds = special ? 4.3 : 2.4;
+    const rate = context.sampleRate;
+    const buffer = context.createBuffer(1, Math.ceil(seconds * rate), rate);
+    const samples = buffer.getChannelData(0);
+    const random = this._noise(special ? 99057 : 87157);
+    const lowAlpha = 1 - Math.exp(-2 * Math.PI * 230 / rate);
+    const crackAlpha = 1 - Math.exp(-2 * Math.PI * 4800 / rate);
+    let low = 0, crack = 0;
+    const tau = 2 * Math.PI;
+    for (let i = 0; i < samples.length; i++) {
+      const t = i / rate;
+      const noise = random();
+      low += lowAlpha * (noise - low);
+      crack += crackAlpha * (noise - crack);
+      let value = 0;
+      if (t < charge) {
+        const progress = t / charge;
+        const phase = tau * (220 * t + 520 * t * t / charge);
+        const rise = Math.sin(Math.PI * progress / 2) * Math.min(1, (charge - t) / 0.012);
+        value = (Math.sin(phase) + Math.sin(phase * 1.52) * 0.32)
+          * rise * (special ? 0.2 : 0.13) + low * progress * 0.28;
+      }
+      const count = special ? 3 : 1;
+      for (let burst = 0; burst < count; burst++) {
+        const age = t - charge - burst * 0.17;
+        if (age < 0) continue;
+        const onset = 1 - Math.exp(-age / 0.002);
+        const phase = tau * (42 * age + 83 * 0.06 * (1 - Math.exp(-age / 0.06)));
+        const bass = (Math.sin(phase) + 0.36 * Math.sin(phase * 2.01)) * Math.exp(-age / 0.57);
+        const crackle = (crack - low) * Math.exp(-age / 0.05);
+        const roar = low * Math.exp(-age / 0.81) * 2.3;
+        const electric = (Math.sin(tau * 113 * age) + 0.22 * Math.sin(tau * 673 * age))
+          * Math.exp(-age / 0.24);
+        value += onset * (bass * 0.55 + crackle * 0.85 + roar * 0.46 + electric * 0.11);
+      }
+      samples[i] = value * Math.min(1, (seconds - t) / 0.16);
+    }
+    this._normalize(samples, special ? 0.97 : 0.93);
     return buffer;
   }
 
