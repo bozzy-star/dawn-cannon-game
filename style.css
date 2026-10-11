@@ -10,3 +10,11 @@
 
 .hull>span{display:flex;justify-content:space-between;align-items:center;gap:4px;white-space:nowrap}.hull b{float:none;font-size:11px}
 @media(orientation:portrait) and (max-width:700px){.hull{width:102px}}
+/* Keep every touch target inside narrow portrait screens. */
+@media(orientation:portrait) and (max-width:360px){
+  #controls{left:calc(8px + env(safe-area-inset-left));right:calc(8px + env(safe-area-inset-right));gap:6px}
+  .gun,#special,#salvo{width:44px}
+  #fire{width:64px;height:64px}
+  .trigger{gap:4px}
+  #fire b{font-size:18px;letter-spacing:2px;margin-left:2px}
+}
