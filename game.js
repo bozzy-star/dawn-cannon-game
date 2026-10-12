@@ -280,7 +280,7 @@ function beginArea(id=chosenArea){
 }
 function updateCamera(){
   ship.position.y=Math.sin(elapsed*.7)*.09;ship.rotation.z=Math.sin(elapsed*.49)*.0025;
-  camera.position.set(0,7.6+ship.position.y,8.6);camera.rotation.order='YXZ';
+  camera.position.set(0,13+ship.position.y,9.5);camera.rotation.order='YXZ';
   camera.rotation.set(pitch+(Math.random()-.5)*shake*.013,yaw+(Math.random()-.5)*shake*.008,Math.sin(elapsed*.49)*.002);
   const merge=charge?clamp(charge.time/1.25,0,1)*(charge.fired?clamp(1-(charge.time-1.4)/.9,0,1):1):0;
   turretYaw.rotation.y=yaw;turretElevation.rotation.x=pitch+.012;
