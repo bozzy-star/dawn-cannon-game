@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { CannonAudio } from './audio.js?v=asahi-v6.3';
-import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v6.3';
-import { createWarship } from './enemies.js?v=asahi-v6.3';
-import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v6.3';
-import { Battlefield } from './battlefield.js?v=asahi-v6.3';
-import { buildFlagship } from './flagship.js?v=asahi-v6.3';
+import { CannonAudio } from './audio.js?v=asahi-v6.4';
+import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v6.4';
+import { createWarship } from './enemies.js?v=asahi-v6.4';
+import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v6.4';
+import { Battlefield } from './battlefield.js?v=asahi-v6.4';
+import { buildFlagship } from './flagship.js?v=asahi-v6.4';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -138,7 +138,7 @@ const keys=new Set();
 let gameTime=0,elapsed=0,started=false,paused=false,finished=true;
 let hp=100,maxHP=100,kills=0,wave=0,waveWait=0,selected=0,yaw=0,pitch=-.018,shake=0,damage=0,toastTime=0;
 let activeArea=clamp(campaign.state.unlockedArea,1,AREAS.length),chosenArea=activeArea;
-let uiMode='title',harborTab='map',aimPointer=null,holdFire=false,salvoQueue=[],specialUsed=false,charge=null;
+let uiMode='title',harborTab='map',aimPointer=null,holdFire=false,repeatFireDelay=0,salvoQueue=[],specialUsed=false,charge=null;
 let stats={shots:0,hits:0,kills:0,killScore:0,time:0,hull:100};
 let lastResult=null,enemyCounter=0,morseCooldown=0,energyFlash=0;
 let dragonUses=0,fuelTimer=0,selectedContact=null,bombDepth=50,auxiliary=null;
@@ -502,7 +502,7 @@ function tick(dt){
   if(campaign.state.stock.fuel<5){endGame(false,'燃料不足・撤退');return;}
   for(const g of guns){g.cooldown=Math.max(0,g.cooldown-dt);g.recoil=Math.max(0,g.recoil-dt*3.8);}
   if(charge){charge.time+=dt;if(!charge.fired&&charge.time>=1.4){charge.fired=true;scene.updateMatrixWorld(true);dragonBlast();}if(charge.time>2.5)charge=null;}
-  else{for(const q of salvoQueue)q.delay-=dt;const due=salvoQueue.filter(q=>q.delay<=0);salvoQueue=salvoQueue.filter(q=>q.delay>0);for(const q of due)fire(q.index,false);if(holdFire)fireSelected();}
+  else{for(const q of salvoQueue)q.delay-=dt;const due=salvoQueue.filter(q=>q.delay<=0);salvoQueue=salvoQueue.filter(q=>q.delay>0);for(const q of due)fire(q.index,false);if(holdFire){repeatFireDelay=Math.max(0,repeatFireDelay-dt);if(repeatFireDelay<=0){const fired=fireSelected();repeatFireDelay=fired?.35:.08;}}}
   const rate=dt*.65;
   if(keys.has('ArrowLeft')||keys.has('a'))yaw+=rate;if(keys.has('ArrowRight')||keys.has('d'))yaw-=rate;
   if(keys.has('ArrowUp')||keys.has('w'))pitch+=rate*.65;if(keys.has('ArrowDown')||keys.has('s'))pitch-=rate*.65;
@@ -677,7 +677,7 @@ $('mute').addEventListener('click',()=>{if(uiMode!=='pause')audio.unlock();audio
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await $('game').requestFullscreen();if(screen.orientation?.lock)await screen.orientation.lock('landscape');}catch{}});
 document.querySelectorAll('.gun').forEach(b=>b.addEventListener('click',()=>{if(uiMode!=='battle')return;const index=Number(b.dataset.gun);if(index<campaign.gunCount())selected=index;audio.unlock();}));
 $('salvo').addEventListener('click',()=>{if(uiMode==='battle')audio.unlock();salvo();});$('special').addEventListener('click',()=>{if(uiMode==='battle')audio.unlock();fireDragon();});
-$('fire').addEventListener('pointerdown',e=>{if(uiMode!=='battle'||charge)return;e.preventDefault();audio.unlock();$('fire').setPointerCapture(e.pointerId);holdFire=true;fireSelected();});
+$('fire').addEventListener('pointerdown',e=>{if(uiMode!=='battle'||charge)return;e.preventDefault();audio.unlock();$('fire').setPointerCapture(e.pointerId);holdFire=true;fireSelected();repeatFireDelay=.35;});
 for(const name of ['pointerup','pointercancel','lostpointercapture'])$('fire').addEventListener(name,()=>{holdFire=false;});
 canvas.addEventListener('pointerdown',e=>{if(uiMode!=='battle'||finished||charge||aimPointer!==null)return;e.preventDefault();audio.unlock();aimPointer={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);});
 canvas.addEventListener('pointermove',e=>{if(!aimPointer||aimPointer.id!==e.pointerId)return;const scale=1.35/Math.min(innerWidth,900);yaw-=(e.clientX-aimPointer.x)*scale;pitch-=(e.clientY-aimPointer.y)*scale*.6;aimPointer.x=e.clientX;aimPointer.y=e.clientY;yaw=THREE.MathUtils.euclideanModulo(yaw+Math.PI,Math.PI*2)-Math.PI;pitch=clamp(pitch,-.65,1.15);});
@@ -685,7 +685,7 @@ for(const name of ['pointerup','pointercancel','lostpointercapture'])canvas.addE
 window.addEventListener('keydown',e=>{
   if(e.key==='Escape'){if(uiMode==='battle')setPause(true);else if(uiMode==='pause')setPause(false);return;}
   if(uiMode!=='battle')return;if([' ','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))e.preventDefault();if(e.repeat)return;keys.add(e.key);
-  if(e.key===' '){audio.unlock();holdFire=true;fireSelected();}if(e.key.toLowerCase()==='f')salvo();if(e.key.toLowerCase()==='g')fireDragon();if(['1','2','3','4'].includes(e.key)&&Number(e.key)<=campaign.gunCount())selected=Number(e.key)-1;
+  if(e.key===' '){audio.unlock();holdFire=true;fireSelected();repeatFireDelay=.35;}if(e.key.toLowerCase()==='f')salvo();if(e.key.toLowerCase()==='g')fireDragon();if(['1','2','3','4'].includes(e.key)&&Number(e.key)<=campaign.gunCount())selected=Number(e.key)-1;
   if(e.key.toLowerCase()==='q')evade(-1);if(e.key.toLowerCase()==='e')evade(1);if(e.key.toLowerCase()==='x')maneuver.boost=!maneuver.boost;
   if(e.key.toLowerCase()==='v')toggleSonar();if(e.key.toLowerCase()==='h')fireAntiSub();if(e.key.toLowerCase()==='r')selectSubContact();
 });
