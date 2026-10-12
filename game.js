@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { CannonAudio } from './audio.js?v=asahi-v5';
-import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v5';
-import { createWarship } from './enemies.js?v=asahi-v5';
-import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v5';
-import { Battlefield } from './battlefield.js?v=asahi-v5';
+import { CannonAudio } from './audio.js?v=asahi-v5.1';
+import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v5.1';
+import { createWarship } from './enemies.js?v=asahi-v5.1';
+import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v5.1';
+import { Battlefield } from './battlefield.js?v=asahi-v5.1';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -334,9 +334,9 @@ function setWeather(area){
   weather={...area.weather,radarFactor:area.weather.weather==='rain'||area.weather.weather==='storm'?.7:1};
   const night=weather.timeOfDay==='night',morning=weather.timeOfDay==='dawn',wet=weather.weather==='rain'||weather.weather==='storm';
   scene.fog.color.setHex(night?0x1b2e45:morning?0x9f9290:wet?0x7c8e99:area.fogTint);scene.fog.density=wet?.0028:.0015;
-  waterMat.uniforms.seaTint.value.setHex(area.seaTint);waterMat.uniforms.fogTint.value.copy(scene.fog.color);waterMat.uniforms.waveStrength.value=1+weather.seaState*1.7;waterMat.uniforms.lightLevel.value=night?.28:wet?.68:1;
-  skyMat.uniforms.skyTone.value.setRGB(night?.16:morning?1:.85,night?.23:morning?.77:wet?.8:1,night?.39:morning?.66:1);skyMat.uniforms.cloudCover.value=wet?1.18:weather.weather==='clear'?.62:1;
-  sun.intensity=night?.32:wet?1.1:morning?2.4:3;sun.color.setHex(morning?0xffbd87:night?0x9cb6e3:0xffe4bd);hemisphere.intensity=night?.72:wet?1.4:2.15;scene.environmentIntensity=night?.2:wet?.65:1;
+  waterMat.uniforms.seaTint.value.setHex(area.seaTint);waterMat.uniforms.fogTint.value.copy(scene.fog.color);waterMat.uniforms.waveStrength.value=1+weather.seaState*1.7;waterMat.uniforms.lightLevel.value=night?.42:wet?.68:1;
+  skyMat.uniforms.skyTone.value.setRGB(night?.24:morning?1:.85,night?.32:morning?.77:wet?.8:1,night?.49:morning?.66:1);skyMat.uniforms.cloudCover.value=wet?1.18:weather.weather==='clear'?.62:1;
+  sun.intensity=night?.62:wet?1.1:morning?2.4:3;sun.color.setHex(morning?0xffbd87:night?0x9cb6e3:0xffe4bd);hemisphere.intensity=night?1.12:wet?1.4:2.15;scene.environmentIntensity=night?.35:wet?.65:1;
 }
 function syncDamageVisual(){for(const [key,group] of Object.entries(damageVisuals)){const amount=zones[key]||0;group.visible=amount>3;group.scale.setScalar(.65+amount/70);}}
 function saveCondition(){campaign.setHullCondition(clamp(hp/maxHP*100,0,100),zones);}
@@ -612,14 +612,14 @@ function updateTacticalHUD(){
   $('supplyHUD').textContent=`主砲 ${state.stock.shell} · 対空 ${state.stock.aa} · 対潜 ${state.stock.asw} · 燃料 ${state.stock.fuel}/${campaign.fuelCapacity()}`;
   $('threatStatus').textContent=`航空 ${t.airborne}機 · 撃墜 ${stats.airKills||0}機 · 潜水 ${contacts.length} · 機雷 ${t.mines}`;
   $('tactical').classList.toggle('hidden',uiMode!=='battle'&&uiMode!=='pause');$('advancedTactical').classList.toggle('hidden',!advancedOpen);
-  $('mainMode').classList.toggle('active',weaponMode==='main');$('aaSelect').classList.toggle('active',weaponMode==='aa');$('aaSelect').disabled=!u.aa;
+  $('mainMode').classList.toggle('active',weaponMode==='main');$('aaSelect').classList.toggle('active',weaponMode==='aa');$('mainMode').setAttribute('aria-pressed',String(weaponMode==='main'));$('aaSelect').setAttribute('aria-pressed',String(weaponMode==='aa'));$('aaSelect').disabled=!u.aa;
   for(const id of ['evadeLeft','evadeRight']){$(id).disabled=maneuver.evadeCooldown>0||state.stock.fuel<15;$(id).textContent=(id==='evadeLeft'?'左回避':'右回避')+(maneuver.evadeCooldown>0?` ${Math.ceil(maneuver.evadeCooldown)}`:'');}
   $('speedButton').textContent=maneuver.boost?'増速中':'巡航';$('speedButton').classList.toggle('active',maneuver.boost);$('tacticalToggle').classList.toggle('active',advancedOpen);$('tacticalToggle').setAttribute('aria-expanded',String(advancedOpen));
   $('sonar').disabled=!u.sonar;$('sonar').textContent=!u.sonar?'ソナー未装備':`${['','パッシブ','アクティブ','ソノブイ'][u.sonar]} ${t.sonarOn?'ON':'OFF'}`;$('sonar').classList.toggle('active',t.sonarOn);
   const aswNames=['対潜未装備','爆雷','直進魚雷','誘導魚雷','アスロック'];$('asw').disabled=!u.asw||t.aswCooldown>0||state.stock.asw<5;$('asw').textContent=`${aswNames[u.asw]}${t.aswCooldown>0?` ${Math.ceil(t.aswCooldown)}秒`:''}`;
   $('depthControl').classList.toggle('hidden',u.asw!==1);$('contact').disabled=!contacts.length;
   const selected=contacts.find(c=>c.id===selectedContact);$('contact').textContent=selected?`接触 ${Math.round(selected.position.distanceTo(maneuver.position)*10)}m / 深度${Math.round(selected.depth)}m`:'潜水接触を選ぶ';
-  $('aaAssist').disabled=!u.aa;$('aaAssist').textContent=`対空補助 ${t.aaMode==='auto'?'ON':'OFF'}`;$('aaAssist').classList.toggle('active',t.aaMode==='auto');
+  $('aaAssist').disabled=!u.aa;$('aaAssist').textContent=`対空補助 ${t.aaMode==='auto'?'ON':'OFF'}`;$('aaAssist').classList.toggle('active',t.aaMode==='auto');$('aaAssist').setAttribute('aria-pressed',String(t.aaMode==='auto'));
   for(const option of $('rangeDial').options||[])option.disabled=Number(option.value)>detectionRange()*(1+.12*(u.gunPower||0));
   $('rangeDial').value=String(rangeSetting);
   const time={dawn:'朝',day:'昼',night:'夜'},names={clear:'晴',cloudy:'曇',rain:'雨',storm:'荒天'};
