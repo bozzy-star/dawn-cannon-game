@@ -1,4 +1,23 @@
-/** Procedural naval artillery and a bundled synthetic male bridge report. */
+const REPORTS = Object.freeze({
+  sunk: { file: 'enemy-sunk', text: '敵艦、撃沈！', priority: 1, cooldown: 2100 },
+  spotted: { file: 'air-spotted', text: '敵機発見！', priority: 2, cooldown: 5500 },
+  bow: { file: 'hit-bow', text: '艦首、被弾！', priority: 3, cooldown: 2300 },
+  stern: { file: 'hit-stern', text: '艦尾、被弾！', priority: 3, cooldown: 2300 },
+  port: { file: 'hit-port', text: '左舷、被弾！', priority: 3, cooldown: 2300 },
+  starboard: { file: 'hit-starboard', text: '右舷、被弾！', priority: 3, cooldown: 2300 },
+  bridge: { file: 'hit-bridge', text: '艦橋、被弾！', priority: 3, cooldown: 2300 },
+  engine: { file: 'hit-engine', text: '機関部、被弾！', priority: 3, cooldown: 2300 },
+});
+const HIT_LOCATIONS = Object.freeze({
+  bow: 'bow', 艦首: 'bow', 船首: 'bow', 前部: 'bow',
+  stern: 'stern', 艦尾: 'stern', 船尾: 'stern', 後部: 'stern',
+  port: 'port', 左舷: 'port', 左: 'port',
+  starboard: 'starboard', 右舷: 'starboard', 右: 'starboard',
+  bridge: 'bridge', 艦橋: 'bridge',
+  engine: 'engine', 機関部: 'engine', 機関: 'engine',
+});
+
+/** Procedural naval artillery and bundled synthetic young male deck reports. */
 export class CannonAudio {
   constructor() {
     this.context = null;
@@ -16,15 +35,22 @@ export class CannonAudio {
     this._speechVoice = null;
     this._utterance = null;
     this._recordedSunk = null;
+    this._recordedReports = Object.create(null);
     this._recordedVoice = null;
     this._voiceLoadPromise = null;
     this._voiceLoadAbort = null;
+    this._reportPriority = 0;
+    this._reportUntil = -Infinity;
+    this._reportKey = null;
+    this._reportLast = new Map();
+    this._lastHitReport = -Infinity;
     this._refreshSpeechVoice = () => {
       try {
         const voices = this._speech?.getVoices().filter(voice =>
           /^ja(?:[-_]|$)/i.test(voice.lang)) || [];
-        this._speechVoice = voices.find(voice =>
-          /Otoya|Rocko|Reed|Eddy|Ichiro|男性/i.test(voice.name)) || voices[0] || null;
+        this._speechVoice = voices.find(voice => /Eddy/i.test(voice.name))
+          || voices.find(voice => /Reed|Otoya|Ichiro|男性/i.test(voice.name))
+          || voices.find(voice => /Rocko/i.test(voice.name)) || voices[0] || null;
       } catch { this._speechVoice = null; }
     };
     this._speech?.addEventListener?.('voiceschanged', this._refreshSpeechVoice);
@@ -82,7 +108,7 @@ export class CannonAudio {
       this._track(primer, [primer]);
       primer.start();
       // Fetch after resume is requested; iOS gesture activation must stay intact.
-      if (!this._voiceLoadPromise) this._voiceLoadPromise = this._loadRecordedSunk(context);
+      if (!this._voiceLoadPromise) this._voiceLoadPromise = this._loadRecordedReports(context);
       await resumed;
       return context.state === 'running';
     } catch {
@@ -128,25 +154,52 @@ export class CannonAudio {
 
   /** Voice only; keep sinking() and morse() as independent effects. */
   sunk() {
+    return this._report('sunk', REPORTS.sunk, this._recordedSunk);
+  }
+
+  airSpotted(count = 1) {
+    if (!Number.isFinite(Number(count)) || Number(count) <= 0) return false;
+    return this._report('spotted', REPORTS.spotted, this._recordedReports.spotted);
+  }
+
+  hitReport(location = 'bridge') {
+    const label = String(location).trim().replace(/(?:[、,!！ ]*被弾[!！]*)$/, '').toLowerCase();
+    if (!Object.prototype.hasOwnProperty.call(HIT_LOCATIONS, label)) return false;
+    const key = HIT_LOCATIONS[label];
+    return this._report(key, REPORTS[key], this._recordedReports[key]);
+  }
+
+  _report(key, spec, buffer = null) {
     const context = this.context;
     if (!context || context.state !== 'running' || this._muted || this._paused) return false;
-    if (!this._recordedSunk) return this.announce('敵艦、撃沈！');
     const now = globalThis.performance?.now() ?? Date.now();
-    const interval = Math.max(1750, this._recordedSunk.duration * 1000 + 100);
-    if (now - this._lastAnnouncement < interval) return false;
+    if (now - (this._reportLast.get(key) ?? -Infinity) < spec.cooldown) return false;
+    if (spec.priority === 3 && now - this._lastHitReport < 950) return false;
+    // Reports are never queued: stale sightings/sinkings must not play later.
+    // Only a more urgent report can interrupt the current voice.
+    if (now < this._reportUntil && spec.priority <= this._reportPriority) return false;
+    if (!buffer && (!this._speech || !globalThis.SpeechSynthesisUtterance)) return false;
     this._cancelAnnouncement();
+    this._reportPriority = spec.priority;
+    this._reportKey = key;
+    this._reportUntil = now + (buffer ? buffer.duration * 1000 + 70 : Math.max(1200, spec.text.length * 130));
+    this._reportLast.set(key, now);
+    this._lastAnnouncement = now;
+    if (spec.priority === 3) this._lastHitReport = now;
+    if (!buffer) return this._speakReport(spec.text);
     const source = context.createBufferSource();
-    source.buffer = this._recordedSunk;
+    source.buffer = buffer;
     source.playbackRate.value = 1;
     const volume = context.createGain();
     volume.gain.value = 0.98;
     source.connect(volume);
     volume.connect(this.compressor);
     this._recordedVoice = this._track(source, [source, volume], () => {
-      if (this._recordedVoice?.source === source) this._recordedVoice = null;
+      if (this._recordedVoice?.source === source) {
+        this._recordedVoice = null; this._reportPriority = 0; this._reportUntil = -Infinity; this._reportKey = null;
+      }
     });
-    this._lastAnnouncement = now;
-    source.start(context.currentTime + 0.06);
+    source.start(context.currentTime + 0.025);
     return true;
   }
 
@@ -243,30 +296,35 @@ export class CannonAudio {
 
   /** Fallback only: device-installed Japanese male voices are preferred. */
   announce(text = '敵艦、撃沈！') {
-    const context = this.context;
-    if (!this._speech || !globalThis.SpeechSynthesisUtterance || this._muted || this._paused
-      || !context || context.state !== 'running') return false;
-    const now = globalThis.performance?.now() ?? Date.now();
-    if (now - this._lastAnnouncement < 1750) return false;
+    return this._report('generic', { text: String(text), priority: 0, cooldown: 1750 });
+  }
+
+  _speakReport(text) {
     try {
       this._refreshSpeechVoice();
-      this._cancelAnnouncement();
       const utterance = new globalThis.SpeechSynthesisUtterance(String(text));
       utterance.lang = 'ja-JP';
-      utterance.rate = 1.12;
-      utterance.pitch = 0.72;
+      utterance.rate = 1.2;
+      utterance.pitch = 1.06;
       utterance.volume = 0.9;
       if (this._speechVoice) utterance.voice = this._speechVoice;
-      const clear = () => { if (this._utterance === utterance) this._utterance = null; };
+      const clear = () => {
+        if (this._utterance === utterance) {
+          this._utterance = null; this._reportPriority = 0; this._reportUntil = -Infinity; this._reportKey = null;
+        }
+      };
       utterance.onend = utterance.onerror = clear;
       this._utterance = utterance;
       this._speech.speak(utterance);
-      this._lastAnnouncement = now;
       return true;
-    } catch { this._utterance = null; return false; }
+    } catch {
+      this._utterance = null; this._reportPriority = 0; this._reportUntil = -Infinity; this._reportKey = null;
+      return false;
+    }
   }
 
   _cancelAnnouncement() {
+    this._reportPriority = 0; this._reportUntil = -Infinity; this._reportKey = null;
     if (this._recordedVoice) {
       const voice = this._recordedVoice;
       this._recordedVoice = null;
@@ -288,6 +346,9 @@ export class CannonAudio {
     this._voiceLoadAbort = null;
     this._voiceLoadPromise = null;
     this._recordedSunk = null;
+    this._recordedReports = Object.create(null);
+    this._reportLast.clear();
+    this._lastHitReport = -Infinity;
     this._morseBusyUntil = -Infinity;
     this._speech?.removeEventListener?.('voiceschanged', this._refreshSpeechVoice);
     for (const voice of this._voices) {
@@ -304,20 +365,26 @@ export class CannonAudio {
     if (context && context.state !== 'closed') context.close().catch(() => {});
   }
 
-  async _loadRecordedSunk(context) {
+  async _loadRecordedReports(context) {
     try {
       if (typeof globalThis.fetch !== 'function' || typeof context.decodeAudioData !== 'function') return false;
       const controller = typeof globalThis.AbortController === 'function' ? new AbortController() : null;
       this._voiceLoadAbort = controller;
-      const response = await fetch(new URL('./assets/enemy-sunk.wav?v=asahi-v4', import.meta.url), {
-        cache: 'force-cache', ...(controller ? { signal: controller.signal } : {}),
-      });
-      if (!response.ok) return false;
-      const bytes = await response.arrayBuffer();
-      const buffer = await context.decodeAudioData(bytes);
-      if (this.context !== context || context.state === 'closed') return false;
-      this._recordedSunk = buffer;
-      return true;
+      const loaded = await Promise.all(Object.entries(REPORTS).map(async ([key, spec]) => {
+        try {
+          const response = await fetch(new URL(`./assets/${spec.file}.wav?v=asahi-v5`, import.meta.url), {
+            cache: 'force-cache', ...(controller ? { signal: controller.signal } : {}),
+          });
+          if (!response.ok) return false;
+          const bytes = await response.arrayBuffer();
+          const buffer = await context.decodeAudioData(bytes);
+          if (this.context !== context || context.state === 'closed') return false;
+          this._recordedReports[key] = buffer;
+          if (key === 'sunk') this._recordedSunk = buffer;
+          return true;
+        } catch { return false; }
+      }));
+      return loaded.some(Boolean);
     } catch { return false; }
   }
 

@@ -24,23 +24,26 @@ function combinedAircraftGeometry() {
   return geo;
 }
 
-/** Air attacks, automatic AA, sonar, submarine torpedoes, and ASW weapons.
+/** Air attacks, manually aimed AA, sonar, submarine torpedoes, and ASW weapons.
  * Scene objects for aircraft use one InstancedMesh, including the patrol plane.
  * Callback damage and rewards are owned by the main campaign/combat controller.
  */
 export class NavalThreats {
   constructor({ scene, audio, onDamage = () => {}, onAirKill = () => {},
-    onSubKill = () => {}, onEffect = () => {}, consume = () => true,
+    onSubKill = () => {}, onEffect = () => {}, onAirSpotted = () => {}, consume = () => true,
     getUpgrades = () => ({}), getAim = () => ({ origin: ORIGIN, direction: new THREE.Vector3(0, 0, -1), targetPoint: new THREE.Vector3(0, -6, -100) }),
+    getManeuver = () => ({ position: ORIGIN, velocity: ORIGIN, evading: false, evadeWindow: false }),
+    getWeather = () => ({ radarFactor: 1, windX: 0, windZ: 0 }),
   }) {
     this.scene = scene; this.audio = audio;
     this.onDamage = onDamage; this.onAirKill = onAirKill; this.onSubKill = onSubKill;
     this.onEffect = onEffect; this.consume = consume;
-    this.getUpgrades = getUpgrades; this.getAim = getAim;
+    this.getUpgrades = getUpgrades; this.getAim = getAim; this.onAirSpotted = onAirSpotted;
+    this.getManeuver = getManeuver; this.getWeather = getWeather;
     this.nextId = 1; this.shipRecords = new Map(); this.aircraft = [];
-    this.bombs = []; this.torpedoes = []; this.projectiles = []; this.tracers = [];
+    this.bombs = []; this.torpedoes = []; this.projectiles = []; this.tracers = []; this.mines = [];
     this.pending = 0; this.airKills = 0; this.sonarOn = false;
-    this.aswCooldown = 0; this.aaCooldown = 0; this.pingCooldown = 0;
+    this.aswCooldown = 0; this.aaCooldown = 0; this.pingCooldown = 0; this.aaMode = 'manual';
     this.time = 0; this.patrol = null; this.buoyDeployed = false;
     this.geometries = []; this.materials = []; this.initialized = false;
     this.dummy = new THREE.Object3D(); this.scratch = new THREE.Vector3();
@@ -71,6 +74,7 @@ export class NavalThreats {
     this.torpedoGeo = this._geometry(new THREE.CylinderGeometry(.2, .2, 2.2, 6));
     this.torpedoGeo.rotateX(Math.PI / 2);
     this.chargeGeo = this._geometry(new THREE.CylinderGeometry(.52, .52, 1.05, 8));
+    this.mineGeo = this._geometry(new THREE.IcosahedronGeometry(1.1, 0));
     this.lineGeo = this._geometry(new THREE.CylinderGeometry(.045, .045, 1, 5));
     this.darkMat = this._material(new THREE.MeshStandardMaterial({ color: 0x343f44, roughness: .65, metalness: .65 }));
     this.bombMat = this._material(new THREE.MeshStandardMaterial({ color: 0x242b2c, roughness: .75 }));
@@ -78,25 +82,87 @@ export class NavalThreats {
     this.wakeMat = this._material(new THREE.MeshBasicMaterial({ color: 0xc8e5e6, transparent: true, opacity: .56, depthWrite: false }));
     this.buoyMat = this._material(new THREE.MeshStandardMaterial({ color: 0xe9a246, roughness: .6 }));
     this.shipRecords.clear(); this.aircraft.length = 0; this.bombs.length = 0;
-    this.torpedoes.length = 0; this.projectiles.length = 0; this.tracers.length = 0;
+    this.torpedoes.length = 0; this.projectiles.length = 0; this.tracers.length = 0; this.mines.length = 0;
     this.pending = 0; this.airKills = 0; this.aswCooldown = 0; this.aaCooldown = 0;
     this.pingCooldown = .6; this.time = 0; this.patrol = null; this.buoyDeployed = false;
+    this.aaMode = 'manual'; this.assistCooldown = 0;
     this.sonarOn = (this.getUpgrades().sonar || 0) >= 3;
     this.initialized = true;
   }
 
   spawnAirRaid(count) {
     const amount = clamp(Math.floor(Number(count) || 0), 0, 1000);
-    this.pending += amount; this._fillRaid(); return amount;
+    this.pending += amount; this._fillRaid(); if (amount) this.onAirSpotted(amount); return amount;
   }
   _fillRaid() {
+    const ship = this._maneuver();
     while (this.pending > 0 && this.aircraft.length < MAX_AIRCRAFT) {
       this.pending--;
       const n = this.nextId++;
-      this.aircraft.push({ id: n, position: new THREE.Vector3((n % 12 - 5.5) * 8 + Math.random() * 5, 23 + (n % 5) * 3, -250 - Math.random() * 85),
-        hp: 2.5, phase: Math.random() * Math.PI * 2, state: 'approach', bombed: false,
-        speed: 22 + Math.random() * 6, targetX: (Math.random() - .5) * 14 });
+      this.aircraft.push({ id: n, position: new THREE.Vector3(ship.position.x + (n % 12 - 5.5) * 8 + Math.random() * 5, 26 + (n % 5) * 3, ship.position.z - 300 - Math.random() * 100),
+        hp: 3.2, phase: Math.random() * Math.PI * 2, state: 'approach', bombed: false,
+        speed: 33 + Math.random() * 10, targetX: (Math.random() - .5) * 12, bombTimer: 0, bombCount: 0 });
     }
+  }
+
+  _maneuver() {
+    const raw = this.getManeuver() || {};
+    const position = raw.position?.clone?.() || new THREE.Vector3(); position.y = 0;
+    const velocity = raw.velocity?.clone?.() || new THREE.Vector3(); velocity.y = 0;
+    return { position, velocity, evading: !!raw.evading, evadeWindow: !!raw.evadeWindow };
+  }
+  _damage(amount, kind, position, maneuver = this._maneuver()) {
+    if (maneuver.evadeWindow) { this.onEffect(position.clone(), 'splash', .7); return false; }
+    const offset = position.clone().sub(maneuver.position);
+    const location = offset.z < -10 ? '艦首' : offset.z > 10 ? '艦尾' : offset.x < 0 ? '左舷' : '右舷';
+    this.onDamage(amount, { kind, position: position.clone(), location }); return true;
+  }
+  spawnMines(count) {
+    const amount = clamp(Math.floor(Number(count) || 0), 0, 80);
+    const ship = this._maneuver();
+    for (let i = 0; i < amount; i++) {
+      const position = ship.position.clone().add(new THREE.Vector3((i % 7 - 3) * 9 + (Math.random() - .5) * 5, .3, -65 - Math.floor(i / 7) * 35));
+      const mesh = this._mesh(this.mineGeo, this.darkMat, position);
+      for (let axis = 0; axis < 3; axis++) for (const sign of [-1, 1]) {
+        const spike = new THREE.Mesh(this.chargeGeo, this.darkMat); spike.scale.set(.2, .65, .2);
+        spike.position.set(axis === 0 ? sign * 1.2 : 0, axis === 1 ? sign * 1.2 : 0, axis === 2 ? sign * 1.2 : 0);
+        if (axis === 0) spike.rotation.z = Math.PI / 2; if (axis === 2) spike.rotation.x = Math.PI / 2;
+        mesh.add(spike);
+      }
+      this.mines.push({ id: `mine:${this.nextId++}`, mesh, hp: 3.2, phase: i * .8 });
+    }
+    return amount;
+  }
+  _killMine(index) {
+    const mine = this.mines[index]; if (!mine) return;
+    this.onEffect(mine.mesh.position.clone(), 'splash', 1.1); this.onEffect(mine.mesh.position.clone(), 'blast', .7);
+    this.audio?.impact?.(clamp(mine.mesh.position.x / 100, -1, 1), false);
+    this.group.remove(mine.mesh); this.mines.splice(index, 1);
+  }
+  toggleAAMode() {
+    if (!(this.getUpgrades().aa > 0)) return { ok: false, mode: this.aaMode, reason: '高角砲未配備' };
+    this.aaMode = this.aaMode === 'manual' ? 'auto' : 'manual';
+    return { ok: true, mode: this.aaMode, reason: this.aaMode === 'manual' ? '高角砲 手動照準・命中威力強化' : '補助対空射撃・手動射撃で迎撃を補ってください' };
+  }
+  fireAA() {
+    const upgrades = this.getUpgrades(), level = upgrades.aa || 0;
+    if (!level) return { ok: false, reason: '高角砲未配備' };
+    if (this.aaCooldown > 0) return { ok: false, reason: `高角砲 装填中 ${this.aaCooldown.toFixed(1)}秒` };
+    const aim = this.getAim() || {}, direction = aim.direction?.clone?.();
+    if (!direction || ![direction.x, direction.y, direction.z].every(Number.isFinite) || direction.lengthSq() < .1) return { ok: false, reason: '照準を敵機または機雷へ向けてください' };
+    if (!this.consume('aa', 1)) return { ok: false, reason: '対空弾薬がありません' };
+    const start = aim.origin?.clone?.() || this._maneuver().position.clone().add(new THREE.Vector3(0, 5, -4));
+    const mesh = this._mesh(this.smallGeo, this.tracerMat, start); mesh.scale.setScalar(2.7);
+    const radar = upgrades.radar || 0, weather = this.getWeather() || {}, vt = radar >= 3;
+    const range = (level >= 3 ? 280 : 225) * (1 + Math.min(radar, 2) * .25) * (weather.radarFactor ?? 1);
+    const velocity = direction.normalize().multiplyScalar(level >= 2 ? 260 : 220);
+    // Manual fire travels to the crosshair. Motion and wind require leading the target;
+    // fire-control VT widens the burst without making the projectile home onto it.
+    this.projectiles.push({ kind: 'aa', mesh, velocity, time: 0, life: range / velocity.length(), level, vt,
+      damage: level >= 3 ? 6.4 : level >= 2 ? 4.8 : 3.6, radius: vt ? 10 : level >= 3 ? 6 : 3.8 });
+    this.aaCooldown = level >= 2 ? .32 : .48;
+    this.audio?.aircraftHit?.(clamp(direction.x, -1, 1), 0);
+    return { ok: true, reason: vt ? '高角砲 VT弾発射' : level >= 3 ? '特殊対空弾 発射' : '高角砲 発射' };
   }
   registerShip(enemy) {
     if (!enemy || this.shipRecords.has(enemy.id)) return;
@@ -131,7 +197,33 @@ export class NavalThreats {
     return ['off', 'passive', 'active', 'sonobuoy'][Math.min(3, this.getUpgrades().sonar || 0)];
   }
   _launchPatrol() {
-    this.patrol = { time: 0, position: new THREE.Vector3(-18, 9, 45) };
+    const origin = this._maneuver().position;
+    this.patrol = { time: 0, origin, position: origin.clone().add(new THREE.Vector3(-18, 9, 45)) };
+  }
+  get airContacts() {
+    return this.aircraft.map(a => ({ id: a.id, name: '敵爆撃機', position: a.position.clone(), hp: a.hp,
+      altitude: Math.round(a.position.y * METRES_PER_UNIT), distance: Math.round(a.position.distanceTo(this._maneuver().position) * METRES_PER_UNIT) }));
+  }
+  get mineContacts() {
+    const ship = this._maneuver();
+    return this.mines.map(m => ({ id: m.id, name: '係維機雷', position: m.mesh.position.clone(), hp: m.hp,
+      distance: Math.round(m.mesh.position.distanceTo(ship.position) * METRES_PER_UNIT) }));
+  }
+  getAATarget() {
+    const aim = this.getAim() || {}, origin = aim.origin || this._maneuver().position, direction = aim.direction;
+    if (!direction || direction.lengthSq() < .1) return null;
+    const ray = new THREE.Ray(origin, direction.clone().normalize());
+    const upgrades = this.getUpgrades(), range = (upgrades.aa >= 3 ? 280 : 225) * (1 + Math.min(upgrades.radar || 0, 2) * .25) * (this.getWeather()?.radarFactor ?? 1);
+    let best = null, score = Infinity;
+    for (const a of this.aircraft) {
+      const vector = a.position.clone().sub(origin), distance = vector.length(), forward = vector.dot(ray.direction);
+      if (forward < 0 || distance > range) continue;
+      const separation = ray.distanceToPoint(a.position), angle = separation / Math.max(1, distance);
+      if (angle > .14 || angle >= score) continue;
+      score = angle; best = { id: a.id, name: '敵爆撃機', position: a.position.clone(), hp: a.hp,
+        distance: Math.round(distance * METRES_PER_UNIT), altitude: Math.round(a.position.y * METRES_PER_UNIT), aimError: angle };
+    }
+    return best;
   }
   get contacts() {
     const result = [];
@@ -144,6 +236,7 @@ export class NavalThreats {
   }
   get stats() {
     return { airborne: this.aircraft.length, pending: this.pending, airKills: this.airKills,
+      aaMode: this.aaMode, aaCooldown: this.aaCooldown, aaActive: this.projectiles.filter(p => p.kind === 'aa').length, mines: this.mines.length,
       sonarOn: this.sonarOn, sonarMode: this.sonarMode, sonarReady: this.buoyDeployed,
       aswCooldown: this.aswCooldown, aswActive: this.projectiles.filter(p => p.kind === 'asw').length, subCount: this.contacts.length,
       bombs: this.bombs.length, torpedoes: this.torpedoes.length };
@@ -176,46 +269,53 @@ export class NavalThreats {
     if (this.tracers.length > 180) this.group.remove(this.tracers.shift().mesh);
   }
   _dropBomb(a) {
-    if (this.bombs.length >= 80) return;
+    if (this.bombs.length >= 160) return;
+    const ship = this._maneuver(), fallTime = Math.max(.8, Math.sqrt(Math.max(1, a.position.y - 1.5) / 9));
+    const impact = ship.position.clone().addScaledVector(ship.velocity, fallTime * .8);
+    impact.x += a.targetX * .35;
     const mesh = this._mesh(this.torpedoGeo, this.bombMat, a.position); mesh.rotation.x = Math.PI / 2;
-    this.bombs.push({ mesh, velocity: new THREE.Vector3(0, -3, 16), life: 8 });
+    this.bombs.push({ mesh, velocity: new THREE.Vector3((impact.x - a.position.x) / fallTime, -2, (impact.z - a.position.z) / fallTime), life: 8 });
   }
   _tickAircraft(dt, upgrades) {
+    const ship = this._maneuver();
     for (const a of this.aircraft) {
       a.phase += dt;
       if (a.state === 'approach') {
         a.position.z += a.speed * dt;
-        a.position.x += (a.targetX - a.position.x) * dt * .24;
-        a.position.y += (15 + Math.sin(a.phase * .8) * 2 - a.position.y) * dt * .17;
-        if (!a.bombed && a.position.z > -42) { this._dropBomb(a); a.bombed = true; }
-        if (a.position.z > 75) a.state = 'return';
+        a.position.x += (ship.position.x + a.targetX - a.position.x) * dt * .36;
+        a.position.y += (22 + Math.sin(a.phase * .8) * 2 - a.position.y) * dt * .25;
+        a.bombTimer -= dt;
+        if (a.position.z > ship.position.z - 75 && a.position.z < ship.position.z + 12 && a.bombCount < 3 && a.bombTimer <= 0) {
+          this._dropBomb(a); a.bombCount++; a.bombTimer = .35;
+        }
+        if (a.position.z > ship.position.z + 80) a.state = 'return';
       } else {
         a.position.z -= a.speed * 1.5 * dt;
         a.position.y += (42 - a.position.y) * dt * .8;
-        a.position.x += (70 * Math.sin(a.phase * .25) - a.position.x) * dt * .3;
-        if (a.position.z < -300) { a.state = 'approach'; a.bombed = false; }
+        a.position.x += (ship.position.x + 90 * Math.sin(a.phase * .25) - a.position.x) * dt * .3;
+        if (a.position.z < ship.position.z - 330) { a.state = 'approach'; a.bombed = false; a.bombCount = 0; }
       }
     }
-    this.aaCooldown -= dt;
+    this.aaCooldown = Math.max(0, this.aaCooldown - dt); this.assistCooldown -= dt;
     const aa = upgrades.aa || 0, radar = upgrades.radar || 0;
-    if (aa > 0 && this.aaCooldown <= 0 && this.aircraft.length) {
+    if (this.aaMode === 'auto' && aa > 0 && this.assistCooldown <= 0 && this.aircraft.length) {
       let best = -1, distance = Infinity;
-      const range = (aa >= 3 ? 245 : 200) * (1 + Math.min(radar, 2) * .14);
+      const range = (aa >= 3 ? 245 : 200) * (1 + Math.min(radar, 2) * .25) * (this.getWeather()?.radarFactor ?? 1);
       for (let i = 0; i < this.aircraft.length; i++) {
-        const d = this.aircraft[i].position.length();
+        const d = this.aircraft[i].position.distanceTo(ship.position);
         if (d > range || (aa === 1 && d < 45)) continue;
         if (d < distance) { best = i; distance = d; }
       }
       if (best >= 0) {
         const close = distance < 55 && aa >= 2;
-        this.aaCooldown = close ? .13 : aa >= 3 ? .22 : .48;
+        this.assistCooldown = close ? .8 : aa >= 3 ? 1.0 : 1.6;
         if (this.consume('aa', 1)) {
-          const target = this.aircraft[best], mount = new THREE.Vector3(best % 2 ? -8 : 8, 4.8, -4);
+          const target = this.aircraft[best], mount = ship.position.clone().add(new THREE.Vector3(best % 2 ? -8 : 8, 4.8, -4));
           this._segment(mount, target.position);
           const vt = radar >= 3;
-          const accuracy = vt ? 1 : clamp(.63 + radar * .09 + (close ? .23 : 0), 0, .98);
+          const accuracy = vt ? .75 : clamp(.25 + radar * .07 + (close ? .15 : 0), 0, .65);
           if (Math.random() < accuracy) {
-            target.hp -= (aa >= 3 ? 2.5 : close ? 1.6 : 1.1) * (vt ? 1.6 : 1);
+            target.hp -= (aa >= 3 ? .85 : close ? .7 : .5) * (vt ? 1.4 : 1);
             this.onEffect(target.position.clone(), 'blast', close ? .16 : .32);
             if (target.hp <= 0) this._killAircraft(best);
           }
@@ -225,7 +325,7 @@ export class NavalThreats {
             for (let i = this.aircraft.length - 1; i >= 0; i--) {
               const other = this.aircraft[i]; if (other === target) continue;
               if (other.position.distanceTo(target.position) < (vt ? 11 : 7)) {
-                other.hp -= vt ? 1.5 : .85;
+                other.hp -= vt ? .4 : .2;
                 if (other.hp <= 0) this._killAircraft(i);
               }
             }
@@ -235,12 +335,14 @@ export class NavalThreats {
     }
     this._fillRaid();
     for (let i = this.bombs.length - 1; i >= 0; i--) {
-      const b = this.bombs[i]; b.life -= dt; b.velocity.y -= 12 * dt;
+      const b = this.bombs[i]; b.life -= dt; b.velocity.y -= 18 * dt;
+      const weather = this.getWeather() || {}; b.velocity.x += (weather.windX || 0) * dt * .3; b.velocity.z += (weather.windZ || 0) * dt * .3;
       b.mesh.position.addScaledVector(b.velocity, dt);
       if (b.mesh.position.y <= 1.5 || b.life <= 0) {
         const p = b.mesh.position.clone(); p.y = .1;
         this.onEffect(p, 'splash', .75);
-        if (Math.abs(p.x) < 13 && p.z > -30 && p.z < 28) this.onDamage(7);
+        const relative = p.clone().sub(ship.position);
+        if (Math.abs(relative.x) < 13 && relative.z > -30 && relative.z < 28) this._damage(15, 'bomb', p, ship);
         this.group.remove(b.mesh); this.bombs.splice(i, 1);
       }
     }
@@ -249,7 +351,7 @@ export class NavalThreats {
   _tickPatrol(dt) {
     if (!this.patrol) return;
     const p = this.patrol; p.time += dt;
-    p.position.set(-18 + Math.sin(p.time * .5) * 35, 12 + p.time * 1.3, 45 - p.time * 45);
+    p.position.set(p.origin.x -18 + Math.sin(p.time * .5) * 35, 12 + p.time * 1.3, p.origin.z + 45 - p.time * 45);
     if (p.time >= 4 && !this.buoyDeployed) {
       this.buoyDeployed = true;
       const mesh = this._mesh(this.chargeGeo, this.buoyMat, p.position);
@@ -273,13 +375,15 @@ export class NavalThreats {
 
   _torpedoFromSub(e) {
     const position = e.root.position.clone(); position.y = .1;
-    const target = new THREE.Vector3((Math.random() - .5) * 12, .1, 0);
-    const velocity = target.sub(position).normalize().multiplyScalar(24);
+    const ship = this._maneuver(), travel = position.distanceTo(ship.position) / 32;
+    const target = ship.position.clone().addScaledVector(ship.velocity, Math.min(3, travel)); target.y = .1; target.x += (Math.random() - .5) * 8;
+    const velocity = target.sub(position).normalize().multiplyScalar(32);
     const mesh = this._mesh(this.torpedoGeo, this.darkMat, position);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), velocity.clone().normalize());
     this.torpedoes.push({ mesh, velocity, life: 25, wake: 0, damage: e.spec?.damage || 15 });
   }
   _tickShips(dt, upgrades) {
+    const ship = this._maneuver();
     let nearest = Infinity;
     for (const [id, r] of this.shipRecords) {
       const e = r.enemy;
@@ -308,11 +412,12 @@ export class NavalThreats {
         continue;
       }
       r.phase += dt;
-      e.root.position.z += dt * (e.spec?.speed || 2);
-      e.root.position.x += Math.sin(r.phase * .18) * dt * .55;
-      if (e.root.position.z > -36) { e.root.position.z = -65; e.root.position.x *= .8; }
+      const toShip = ship.position.clone().sub(e.root.position); toShip.y = 0;
+      const distanceBefore = toShip.length();
+      if (distanceBefore > 45) e.root.position.addScaledVector(toShip.normalize(), dt * (e.spec?.speed || 2));
+      else { e.root.position.x += Math.cos(r.phase * .18) * dt * (e.spec?.speed || 2); e.root.position.z += Math.sin(r.phase * .18) * dt * (e.spec?.speed || 2); }
       e.root.position.y = -e.depth;
-      const distance = Math.hypot(e.root.position.x, e.root.position.z);
+      const distance = Math.hypot(e.root.position.x - ship.position.x, e.root.position.z - ship.position.z);
       nearest = Math.min(nearest, distance);
       const sonar = upgrades.sonar || 0;
       e.detected = this.sonarOn && (sonar === 1 ? distance <= 100 : sonar === 2 ? distance <= 200 : sonar >= 3 && this.buoyDeployed);
@@ -330,7 +435,7 @@ export class NavalThreats {
     if (this.sonarOn && (upgrades.sonar || 0) >= 2 && nearest <= ((upgrades.sonar || 0) >= 3 ? Infinity : 200)) {
       this.pingCooldown -= dt;
       if (this.pingCooldown <= 0) {
-        this.audio?.sonarPing?.();
+        this.audio?.sonarPing?.(nearest * METRES_PER_UNIT);
         this.pingCooldown = clamp(.32 + nearest / 200 * 2.3, .38, 3.2);
       }
     }
@@ -338,10 +443,23 @@ export class NavalThreats {
       const t = this.torpedoes[i], before = t.mesh.position.clone();
       t.mesh.position.addScaledVector(t.velocity, dt); t.life -= dt; t.wake -= dt;
       if (t.wake <= 0) { this._segment(before, before.clone().addScaledVector(t.velocity, -.4), this.wakeMat, 1); t.wake = .16; }
-      if (Math.abs(t.mesh.position.x) < 13 && Math.abs(t.mesh.position.z) < 17) {
-        this.onDamage(t.damage); this.onEffect(t.mesh.position.clone(), 'splash', 1.1); t.life = 0;
+      const relative = t.mesh.position.clone().sub(ship.position);
+      if (Math.abs(relative.x) < 13 && Math.abs(relative.z) < 28) {
+        this._damage(t.damage, 'torpedo', t.mesh.position, ship); this.onEffect(t.mesh.position.clone(), 'splash', 1.1); t.life = 0;
       }
-      if (t.life <= 0 || t.mesh.position.z > 70) { this.group.remove(t.mesh); this.torpedoes.splice(i, 1); }
+      if (t.life <= 0 || t.mesh.position.distanceTo(ship.position) > 1800) { this.group.remove(t.mesh); this.torpedoes.splice(i, 1); }
+    }
+  }
+
+  _tickMines(dt) {
+    const ship = this._maneuver();
+    for (let i = this.mines.length - 1; i >= 0; i--) {
+      const mine = this.mines[i]; mine.phase += dt;
+      mine.mesh.position.y = .3 + Math.sin(mine.phase * 2) * .28; mine.mesh.rotation.y += dt * .15;
+      const relative = mine.mesh.position.clone().sub(ship.position);
+      if (Math.abs(relative.x) < 13 && Math.abs(relative.z) < 30) {
+        this._damage(22, 'mine', mine.mesh.position, ship); this._killMine(i);
+      }
     }
   }
 
@@ -358,25 +476,35 @@ export class NavalThreats {
     }
     return target;
   }
+  _nearestMine(point) {
+    let best = null, distance = 18;
+    for (const mine of this.mines) {
+      const d = Math.hypot(mine.mesh.position.x - point.x, mine.mesh.position.z - point.z);
+      if (d < distance) { best = mine; distance = d; }
+    }
+    return best;
+  }
   fireASW() {
     const level = this.getUpgrades().asw || 0;
     if (!level) return { ok: false, reason: '対潜兵装未配備' };
     if (this.aswCooldown > 0) return { ok: false, reason: `対潜兵装 装填中 ${this.aswCooldown.toFixed(1)}秒` };
     const aim = this.getAim() || {}, point = aim.targetPoint?.clone?.() || new THREE.Vector3(0, -7, -80);
     if (![point.x, point.y, point.z].every(Number.isFinite)) return { ok: false, reason: '投下位置を指定してください' };
-    const start = new THREE.Vector3(0, level === 1 || level >= 4 ? 4 : -6, -12);
+    const ship = this._maneuver(), start = ship.position.clone().add(new THREE.Vector3(0, level === 1 || level >= 4 ? 4 : -6, -12));
     const target = this._nearestDetected(point);
-    if (level >= 3 && !target) return { ok: false, reason: 'ソナーで潜水艦を探知してください' };
-    if (level === 1 && Math.hypot(point.x, point.z) > 120) return { ok: false, reason: '爆雷の投下範囲は1200m以内' };
+    const mine = this._nearestMine(point);
+    if (level >= 3 && !target && !mine) return { ok: false, reason: 'ソナーで潜水艦を探知するか、機雷の位置を指定してください' };
+    if (level === 1 && Math.hypot(point.x - ship.position.x, point.z - ship.position.z) > 120) return { ok: false, reason: '爆雷の投下範囲は1200m以内' };
     if (!this.consume('asw', 1)) return { ok: false, reason: '対潜弾薬がありません' };
-    if (target && level >= 2) point.copy(target.root.position);
+    if (mine && !target && level >= 2) { point.copy(mine.mesh.position); point.y = -1; }
+    else if (target && level >= 2) point.copy(target.root.position);
     // An aimed empty-water point still has a chosen detonation depth. Sonar
     // contacts provide their actual depth, rewarding preparation and placement.
     const depth = point.y < -.5 ? clamp(-point.y, 1.5, 25) : 7;
     point.y = -depth;
     const mesh = this._mesh(level === 1 ? this.chargeGeo : this.torpedoGeo, this.darkMat, start);
     const shot = { kind: 'asw', level, mesh, time: 0, stage: level === 1 ? 'lob' : level >= 4 ? 'rocket' : 'swim',
-      target: point, start, targetId: target?.id, depth, velocity: new THREE.Vector3(), life: 22, wake: 0 };
+      target: point, start, targetId: target?.id, targetMineId: !target ? mine?.id : null, depth, velocity: new THREE.Vector3(), life: 22, wake: 0 };
     if (shot.stage === 'swim') {
       mesh.position.y = -depth;
       shot.velocity.copy(point).sub(mesh.position).normalize().multiplyScalar(level === 2 ? 40 : 45);
@@ -403,10 +531,44 @@ export class NavalThreats {
       const damage = 10 * Math.max(0, 1 - horizontal / 16) * Math.max(0, 1 - vertical / 10);
       this._damageSub(e, damage);
     }
+    for (let i = this.mines.length - 1; i >= 0; i--) {
+      const mine = this.mines[i], horizontal = Math.hypot(position.x - mine.mesh.position.x, position.z - mine.mesh.position.z);
+      mine.hp -= 10 * Math.max(0, 1 - horizontal / 18) * Math.max(0, 1 - Math.abs(position.y) / 14);
+      if (mine.hp <= 0) this._killMine(i);
+    }
   }
   _tickProjectiles(dt) {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i]; p.time += dt;
+      if (p.kind === 'aa') {
+        p.life -= dt;
+        const before = p.mesh.position.clone(), weather = this.getWeather() || {};
+        p.velocity.x += (weather.windX || 0) * dt * .55; p.velocity.z += (weather.windZ || 0) * dt * .55;
+        p.velocity.y -= 2.4 * dt; p.mesh.position.addScaledVector(p.velocity, dt);
+        this._segment(before, p.mesh.position, this.tracerMat, .16);
+        const segment = new THREE.Line3(before, p.mesh.position);
+        let hit = null;
+        for (let n = this.aircraft.length - 1; n >= 0; n--) {
+          const a = this.aircraft[n], nearest = segment.closestPointToPoint(a.position, true, this.scratch);
+          if (nearest.distanceTo(a.position) <= p.radius) { hit = a.position.clone(); break; }
+        }
+        if (hit) {
+          for (let n = this.aircraft.length - 1; n >= 0; n--) {
+            const a = this.aircraft[n], distance = a.position.distanceTo(hit);
+            if (distance <= (p.vt || p.level >= 3 ? p.radius * 1.6 : p.radius)) {
+              a.hp -= p.damage * Math.max(.3, 1 - distance / Math.max(1, p.radius * 2));
+              if (a.hp <= 0) this._killAircraft(n);
+            }
+          }
+          this.onEffect(hit, 'blast', .38); this.audio?.aircraftHit?.(clamp(hit.x / 100, -1, 1), hit.length() * METRES_PER_UNIT); p.life = 0;
+        }
+        if (!hit) for (let n = this.mines.length - 1; n >= 0; n--) {
+          const mine = this.mines[n], nearest = segment.closestPointToPoint(mine.mesh.position, true, this.scratch);
+          if (nearest.distanceTo(mine.mesh.position) <= 2.2) { mine.hp -= p.damage; if (mine.hp <= 0) this._killMine(n); p.life = 0; break; }
+        }
+        if (p.life <= 0 || p.mesh.position.y < -.8) { this.group.remove(p.mesh); this.projectiles.splice(i, 1); }
+        continue;
+      }
       if (p.kind === 'buoy') {
         if (p.mesh.position.y > .3) {
           p.velocity.y -= 9 * dt; p.mesh.position.addScaledVector(p.velocity, dt);
@@ -426,6 +588,7 @@ export class NavalThreats {
       } else if (p.stage === 'rocket') {
         const target = this._findSub(p.targetId);
         if (target) p.target.copy(target.root.position);
+        else { const mine = this.mines.find(m => m.id === p.targetMineId); if (mine) { p.target.copy(mine.mesh.position); p.target.y = -1; } }
         const t = clamp(p.time / 1.8, 0, 1);
         const sea = p.target.clone(); sea.y = .15;
         p.mesh.position.copy(p.start).lerp(sea, t); p.mesh.position.y += Math.sin(t * Math.PI) * 30;
@@ -437,8 +600,10 @@ export class NavalThreats {
         }
       } else if (p.stage === 'swim') {
         const target = this._findSub(p.targetId);
-        if (p.level >= 3 && target) {
-          const desired = target.root.position.clone().sub(p.mesh.position).normalize().multiplyScalar(p.level >= 4 ? 55 : 45);
+        const mineTarget = this.mines.find(m => m.id === p.targetMineId);
+        const targetPosition = target?.root.position || mineTarget?.mesh.position;
+        if (p.level >= 3 && targetPosition) {
+          const desired = targetPosition.clone().sub(p.mesh.position).normalize().multiplyScalar(p.level >= 4 ? 55 : 45);
           p.velocity.lerp(desired, Math.min(1, dt * 5));
         }
         p.mesh.position.addScaledVector(p.velocity, dt);
@@ -459,8 +624,12 @@ export class NavalThreats {
             this.audio?.impact?.(clamp(impact.x / 100, -1, 1), false); p.life = 0; break;
           }
         }
+        if (p.life > 0) for (let n = this.mines.length - 1; n >= 0; n--) {
+          const mine = this.mines[n], nearest = segment.closestPointToPoint(mine.mesh.position, true, this.scratch);
+          if (nearest.distanceTo(mine.mesh.position) < 3.8) { this._killMine(n); p.life = 0; break; }
+        }
       }
-      if (p.life <= 0 || p.mesh.position.length() > 1600) { this.group.remove(p.mesh); this.projectiles.splice(i, 1); }
+      if (p.life <= 0 || p.mesh.position.distanceTo(this._maneuver().position) > 1600) { this.group.remove(p.mesh); this.projectiles.splice(i, 1); }
     }
   }
   tick(dt, enemies = []) {
@@ -470,7 +639,7 @@ export class NavalThreats {
     for (const e of enemies) if (!e.dead && !e.removed) this.registerShip(e);
     const upgrades = this.getUpgrades();
     this._tickShips(dt, upgrades); this._tickPatrol(dt); this._tickAircraft(dt, upgrades);
-    this._tickProjectiles(dt); this._updateInstances();
+    this._tickProjectiles(dt); this._tickMines(dt); this._updateInstances();
     for (let i = this.tracers.length - 1; i >= 0; i--) {
       this.tracers[i].life -= dt;
       if (this.tracers[i].life <= 0) { this.group.remove(this.tracers[i].mesh); this.tracers.splice(i, 1); }

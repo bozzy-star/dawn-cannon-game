@@ -48,3 +48,90 @@
 body:not(.playing) #supplyHUD,body:not(.playing) #threatStatus,body:not(.playing) #radarScope{display:none}
 @media(max-height:500px){#supplyHUD{top:57px;left:16px;font-size:9px}#threatStatus{top:80px;left:16px;font-size:9px}#tactical{bottom:116px;left:16px;max-width:72%;gap:5px}#tactical button,#depthControl{min-height:32px;padding:5px 8px;font-size:9px}#radarScope{top:61px;right:16px;width:94px}#worldMap svg{max-height:180px}.map-legend{margin:5px 0 8px;font-size:8px}#partStory{font-size:10px;margin:9px 0 13px}.part-tabs button{min-height:30px;font-size:10px}}
 @media(orientation:portrait) and (max-width:700px){#supplyHUD{left:14px;top:118px;font-size:9px;letter-spacing:0}#threatStatus{left:14px;top:141px;font-size:9px;letter-spacing:0}#tactical{left:12px;right:12px;bottom:191px;max-width:none;gap:5px}#tactical button,#depthControl{min-height:34px;font-size:9px;padding:5px 8px}#radarScope{top:169px;right:12px;width:82px}.harbor-tabs button{padding:11px 9px;font-size:10px;letter-spacing:1px}#worldMap svg{max-height:none}#partStory{font-size:10px}.part-tabs{gap:4px}.part-tabs button{font-size:10px;min-height:32px}.battery small{font-size:8px;letter-spacing:.5px}.result-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.stat-value strong{font-size:21px}.result-panel h2{font-size:24px;letter-spacing:2px}}
+
+/* v5: keep steering and manual AA reachable beside the original main guns. */
+#weatherHUD,#objectiveHUD{position:absolute;left:calc(24px + env(safe-area-inset-left));top:129px;z-index:4;max-width:calc(100% - 170px);padding:4px 8px;border-radius:3px;background:#102330a3;color:#bbd4dc;font-size:10px;line-height:1.6;text-shadow:0 1px 3px #061723;pointer-events:none}
+#objectiveHUD{top:154px;color:#eed1a0;max-width:min(620px,calc(100% - 170px))}
+body:not(.playing) #weatherHUD,body:not(.playing) #objectiveHUD,body:not(.playing) #tactical,body:not(.playing) #leadMarker{display:none}
+#tactical{display:block;left:calc(24px + env(safe-area-inset-left));right:auto;bottom:calc(146px + env(safe-area-inset-bottom));width:min(600px,calc(100% - 48px - env(safe-area-inset-left) - env(safe-area-inset-right)));max-width:none}
+.tactical-primary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+#tactical .tactical-primary button{min-height:41px;padding:6px;font-size:10px;white-space:nowrap;background:#132833e8;box-shadow:0 2px 7px #06121e77}
+#tactical #mainMode.active,#tactical #aaSelect.active{background:#665232e8;border-color:#edbe74;color:#f7dab0}
+#tactical #evadeLeft,#tactical #evadeRight{border-color:#779fb0;color:#d1e7eb}
+#tactical #tacticalToggle[aria-expanded="true"]{border-color:#dfb979;color:#edcea0}
+#advancedTactical{position:absolute;left:0;bottom:calc(100% + 8px);width:min(570px,100%);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:10px;border:1px solid #72909a77;border-radius:5px;background:#0e202af5;box-shadow:0 8px 35px #020b14aa}
+#advancedTactical button,#advancedTactical label{min-width:0;min-height:38px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:10px;letter-spacing:0;text-align:center}
+#rangeControl{border:1px solid #617b8755;border-radius:3px;background:#142936dd;color:#bfcfd5;padding:5px}
+#rangeDial,#depth{min-width:0;max-width:90px;min-height:29px;padding:3px;background:#233e4c;color:#e4ded1;font:inherit;border:1px solid #6c929b77;border-radius:2px}
+#leadMarker{position:absolute;left:50%;top:50%;z-index:4;transform:translate(-50%,-50%);width:22px;height:22px;border:1px solid #a9e0cd;border-radius:50%;pointer-events:none;filter:drop-shadow(0 1px 2px #061923)}
+#leadMarker i{position:absolute;inset:6px;border:1px solid #a9e0cd;transform:rotate(45deg)}
+#leadMarker span{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;color:#b5e7d8;letter-spacing:1px}
+.condition-bar{display:grid;grid-template-columns:auto auto 1fr;align-items:center;gap:9px 16px;padding:11px 13px;margin:0 0 13px;border:1px solid #537b7455;border-radius:4px;background:#17302d55}
+.condition-bar>div{display:flex;align-items:center;gap:10px;white-space:nowrap}.condition-bar span{font-size:10px;color:#9bbcb7}.condition-bar strong{font:22px Georgia,serif;color:#cbe4c8}.condition-bar strong.warning{color:#e7a176}
+#repair{min-height:39px;padding:7px 15px;border:1px solid #b3c49a;background:#a9bf9a;color:#1b2b25;border-radius:3px;white-space:nowrap;font-size:11px;touch-action:pan-y}
+#repair:disabled{background:#2e4842;color:#8ba299;border-color:#466a5f;cursor:default}
+#repairNote{font-size:10px;color:#a9c3b8;line-height:1.7;margin:0}
+.map-switch{display:flex;gap:6px;justify-content:flex-end;margin:0 0 8px}.map-switch button{min-height:36px;padding:7px 15px;font-size:10px;border:1px solid #5c7a8655;border-radius:3px;background:#1d3441;color:#a3bac4;touch-action:pan-y}.map-switch button.active{background:#66512e77;border-color:#c7a574;color:#f1c994}
+.shop-card.required{border-color:#df987e;background:linear-gradient(140deg,#4d302b99,#26333bd9)}
+.shop-card.required button,.shop-card button.required{background:#d98d6f;color:#251916;box-shadow:0 0 0 1px #efb69966}
+.shop-card.recommended{border-color:#c6ad6b;background:linear-gradient(140deg,#49422b80,#20333eaa)}
+.shop-card.recommended button,.shop-card button.recommended{background:#d8bb77;color:#25271b}
+.shop-card .requirement-note{margin:0 0 12px;padding:7px 9px;border-radius:3px;background:#ae6d5344;color:#ffccb6;font-size:10px;line-height:1.6}
+.shop-card.recommended .requirement-note{background:#967e3744;color:#f2dbac}
+.shop-card.required button:disabled{background:#704f46;color:#e0b2a3}.shop-card.recommended button:disabled{background:#5a5540;color:#d0c299}
+.review-panel{position:absolute;inset:0;z-index:9;pointer-events:none;background:linear-gradient(180deg,#06172380,transparent 26%,transparent 74%,#06172366)}
+.review-panel>div{position:absolute;left:calc(24px + env(safe-area-inset-left));top:calc(90px + env(safe-area-inset-top));padding:13px 18px;border-left:2px solid #d8b674;background:#0d2028b3;max-width:calc(100% - 48px)}
+.review-panel small{font-size:9px;letter-spacing:3px;color:#d4b685}.review-panel h2{font-weight:400;font-size:23px;letter-spacing:3px;margin:8px 0}.review-panel p{font-size:11px;line-height:1.7;color:#b4cccf;margin:0}
+#skipReview{position:absolute;right:calc(24px + env(safe-area-inset-right));bottom:calc(24px + env(safe-area-inset-bottom));min-height:46px;padding:12px 21px;background:#d5b77a;border:1px solid #ecd09b;border-radius:4px;color:#15262e;font-size:12px;pointer-events:auto}
+body:has(#reviewPanel:not(.hidden)) #controls,body:has(#reviewPanel:not(.hidden)) #tactical,body:has(#reviewPanel:not(.hidden)) #reticle,body:has(#reviewPanel:not(.hidden)) #range,body:has(#reviewPanel:not(.hidden)) #weaponName,body:has(#reviewPanel:not(.hidden)) #leadMarker,body:has(#reviewPanel:not(.hidden)) #markers,body:has(#reviewPanel:not(.hidden)) #weatherHUD,body:has(#reviewPanel:not(.hidden)) #objectiveHUD,body:has(#reviewPanel:not(.hidden)) #radarScope{display:none}
+@media(max-height:500px){
+  #weatherHUD{left:calc(16px + env(safe-area-inset-left));top:103px;font-size:9px;padding:3px 7px}
+  #objectiveHUD{left:calc(16px + env(safe-area-inset-left));top:125px;font-size:9px;padding:3px 7px;max-width:calc(100% - 150px)}
+  #tactical{left:calc(16px + env(safe-area-inset-left));bottom:calc(116px + env(safe-area-inset-bottom));width:min(540px,calc(100% - 32px - env(safe-area-inset-left) - env(safe-area-inset-right)));max-width:none}
+  #tactical .tactical-primary button{min-height:38px;font-size:9px;padding:5px}
+  #advancedTactical{padding:8px;gap:5px}#advancedTactical button,#advancedTactical label{min-height:34px;font-size:9px}
+  #range{top:calc(50% - 3px);left:calc(50% + 44px);transform:none;font-size:9px;letter-spacing:.5px}
+  #weaponName{top:calc(50% + 15px);left:calc(50% + 44px);transform:none;letter-spacing:1px}
+  .condition-bar{padding:8px 10px;gap:8px 12px;margin-bottom:10px}.condition-bar strong{font-size:19px}#repair{min-height:35px;font-size:10px}.map-switch button{min-height:32px;padding:6px 12px}
+  .review-panel>div{top:65px;padding:10px 14px}.review-panel h2{font-size:19px;letter-spacing:2px}.review-panel p{font-size:10px}
+  #skipReview{min-height:42px;bottom:15px;right:16px;font-size:11px}
+}
+@media(orientation:portrait) and (max-width:700px){
+  body.playing #rotate{display:none}
+  #controls{bottom:calc(14px + env(safe-area-inset-bottom))}
+  #tactical{left:calc(12px + env(safe-area-inset-left));right:auto;bottom:calc(102px + env(safe-area-inset-bottom));width:calc(100% - 24px - env(safe-area-inset-left) - env(safe-area-inset-right));max-width:none}
+  .tactical-primary{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  #tactical .tactical-primary button{min-height:39px;padding:5px;font-size:10px}
+  #advancedTactical{grid-template-columns:repeat(2,minmax(0,1fr));padding:8px;gap:5px;width:100%}
+  #advancedTactical button,#advancedTactical label{min-height:36px;font-size:9px}
+  #supplyHUD{top:111px;left:12px;right:12px;max-width:none;white-space:nowrap;font-size:8px;padding:4px 6px}
+  #threatStatus{top:133px;left:12px;font-size:9px;padding:4px 6px;max-width:calc(100% - 24px)}
+  #weatherHUD{top:156px;left:12px;max-width:calc(100% - 112px);font-size:8px;padding:3px 6px}
+  #objectiveHUD{top:180px;left:12px;max-width:calc(100% - 112px);font-size:8px;padding:3px 6px}
+  #radarScope{top:161px;right:12px;width:82px}
+  #range{top:calc(50% + 35px);left:50%;transform:translateX(-50%);font-size:9px}
+  #weaponName{top:calc(50% + 52px);left:50%;transform:translateX(-50%)}
+  .condition-bar{grid-template-columns:1fr auto;gap:7px 8px;padding:9px 10px}.condition-bar>div{gap:7px}.condition-bar strong{font-size:20px}#repairNote{grid-column:1/-1;font-size:9px}#repair{min-height:36px;padding:7px 12px;font-size:10px}
+  .map-switch{justify-content:stretch}.map-switch button{flex:1;min-height:35px;padding:7px;font-size:10px}
+  .review-panel>div{left:12px;right:12px;max-width:none;top:105px;padding:11px 13px}.review-panel h2{font-size:20px;letter-spacing:1px}.review-panel p{font-size:10px}
+  #skipReview{left:12px;right:12px;bottom:calc(17px + env(safe-area-inset-bottom));min-height:45px;font-size:12px}
+}
+@media(orientation:portrait) and (max-width:360px){
+  #tactical{left:calc(8px + env(safe-area-inset-left));width:calc(100% - 16px - env(safe-area-inset-left) - env(safe-area-inset-right));bottom:calc(94px + env(safe-area-inset-bottom))}
+  #tactical .tactical-primary button{font-size:9px;min-height:38px}
+  #advancedTactical{padding:6px;gap:4px}
+  #hud{left:10px;right:10px;gap:6px}.mission{min-width:106px}.brand strong{font-size:24px;letter-spacing:3px}.utilities button{min-width:35px}
+  .hull{width:106px}
+  #supplyHUD{left:8px;right:8px;font-size:7.5px;letter-spacing:0}
+  #weatherHUD,#objectiveHUD{left:8px;font-size:8px}
+  #controls{left:calc(8px + env(safe-area-inset-left));right:calc(8px + env(safe-area-inset-right));gap:6px}
+  .gun,#special,#salvo{width:44px;min-width:44px}#fire{width:64px;min-width:64px;height:64px}.gun-row{gap:3px}.trigger{gap:4px}
+}
+/* The condition field also contains named compartment damage; allow wrapping. */
+.condition-bar{grid-template-columns:minmax(0,1fr) auto}.condition-bar>div{min-width:0;align-items:flex-start;white-space:normal}.condition-bar>div>span{padding-top:2px;flex:none}.condition-bar #condition{min-width:0;font-size:12px;line-height:1.6;font-family:inherit;font-weight:400;overflow-wrap:anywhere}.condition-bar #repairNote{grid-column:1/-1}
+@media(orientation:portrait) and (max-width:700px){.condition-bar>div{display:block}.condition-bar #condition{display:block;font-size:10px}.condition-bar>div>span{display:none}}
+/* Primary steering buttons retain a finger-sized target on compact screens. */
+#tactical .tactical-primary button{min-height:44px}
+@media(max-height:500px){#tactical .tactical-primary button{min-height:44px}}
+@media(orientation:portrait) and (max-width:700px){#tactical .tactical-primary button{min-height:44px}}
+@media(orientation:portrait) and (max-width:360px){#tactical .tactical-primary button{min-height:44px}}
