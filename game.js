@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { CannonAudio } from './audio.js?v=asahi-v4';
-import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v4';
-import { createWarship } from './enemies.js?v=asahi-v4';
-import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v4';
+import { CannonAudio } from './audio.js?v=asahi-v4.1';
+import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v4.1';
+import { createWarship } from './enemies.js?v=asahi-v4.1';
+import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v4.1';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
