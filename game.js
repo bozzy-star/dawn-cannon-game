@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { CannonAudio } from './audio.js?v=asahi-v6.1';
-import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v6.1';
-import { createWarship } from './enemies.js?v=asahi-v6.1';
-import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v6.1';
-import { Battlefield } from './battlefield.js?v=asahi-v6.1';
-import { buildFlagship } from './flagship.js?v=asahi-v6.1';
+import { CannonAudio } from './audio.js?v=asahi-v6.2';
+import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v6.2';
+import { createWarship } from './enemies.js?v=asahi-v6.2';
+import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v6.2';
+import { Battlefield } from './battlefield.js?v=asahi-v6.2';
+import { buildFlagship } from './flagship.js?v=asahi-v6.2';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -144,7 +144,7 @@ let lastResult=null,enemyCounter=0,morseCooldown=0,energyFlash=0;
 let dragonUses=0,fuelTimer=0,selectedContact=null,bombDepth=50,auxiliary=null;
 let worldPart=AREAS[chosenArea-1].part||1;
 let mapZoom='world',weaponMode='main',battlePhase='naval',assaultTime=0,landingIntegrity=100,landingArrival=0;
-let reviewReturn='result',reviewActive=false,reviewTime=0,reviewPending=false,rangeSetting=180,damageSmokeTimer=0,advancedOpen=false;
+let reviewReturn='result',reviewActive=false,reviewTime=0,reviewPending=false,rangeSetting=180,damageSmokeTimer=0,stackSmokeTimer=0,advancedOpen=false;
 let weather={timeOfDay:'day',weather:'clear',seaState:.35,windX:0,windZ:0,radarFactor:1};
 const maneuver={position:new THREE.Vector3(),velocity:new THREE.Vector3(),speed:1.6,boost:false,evading:false,evadeWindow:false,evadeTimer:0,evadeCooldown:0,side:0,rollKick:0,pitchKick:0};
 let zones={...campaign.state.damageZones};
@@ -497,7 +497,7 @@ function dragonBlast(){
   toast(`龍神砲　敵艦${sunk}隻・航空機${planes}機撃破`,2.8);if(sunk)audio.sunk();audio.morse('SUNK');morseCooldown=2.7;
 }
 function tick(dt){
-  gameTime+=dt;morseCooldown=Math.max(0,morseCooldown-dt);tickManeuver(dt);battlefield.tick(dt,maneuver.position);
+  gameTime+=dt;stackSmokeTimer-=dt;if(stackSmokeTimer<=0){for(const [y,z] of [[12.7,49.6],[10.3,63.6]])puff(ship.localToWorld(new THREE.Vector3(0,y,z)),1,0x353a3e,.8);stackSmokeTimer=.8;}morseCooldown=Math.max(0,morseCooldown-dt);tickManeuver(dt);battlefield.tick(dt,maneuver.position);
   const area=AREAS[activeArea-1];fuelTimer+=dt;while(fuelTimer>=1){fuelTimer--;if(!campaign.consume('fuel',maneuver.boost?2:1)){endGame(false,'燃料不足・撤退');return;}}
   if(campaign.state.stock.fuel<5){endGame(false,'燃料不足・撤退');return;}
   for(const g of guns){g.cooldown=Math.max(0,g.cooldown-dt);g.recoil=Math.max(0,g.recoil-dt*3.8);}

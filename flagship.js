@@ -4,7 +4,7 @@ export function buildFlagship(kit) {
   const ship=new THREE.Group();ship.name='Asahi';
   const detail=new THREE.Group();detail.name='ship-details';ship.add(detail);
   const red=new THREE.MeshStandardMaterial({color:0x4d2624,roughness:.86,metalness:.2});
-  const glass=new THREE.MeshStandardMaterial({color:0x152f39,metalness:.55,roughness:.23});
+  const glass=new THREE.MeshStandardMaterial({color:0x07181f,metalness:.08,roughness:.32});
   const plan=new THREE.Shape();plan.moveTo(0,-42);
   plan.bezierCurveTo(-3,-40,-9,-25,-10.6,-10);plan.lineTo(-11.2,63);
   plan.bezierCurveTo(-10.8,79,-8,88,-5,91);plan.lineTo(5,91);
@@ -32,10 +32,13 @@ export function buildFlagship(kit) {
   // The stepped bridge rises above the funnels, matching the references' silhouette.
   const bridge=new THREE.Group();bridge.name='pagoda-bridge';bridge.position.z=34;ship.add(bridge);
   for(const [y,w,d,h] of [[4.0,13,12,2.4],[6.4,10.2,10,2.6],[9.1,8.2,8.3,2.4],[11.8,9.8,6.7,2.1],[14,7.2,5.8,2],[16,6,5,1.9],[18,5.4,4.4,1.8],[20,7.4,3.9,1.5]]){
-    const core=cylinder(bridge,w*.48,w*.51,h,0,y,0,steel,20);core.scale.z=d/w;
+    if(y<10){box(bridge,w,h,d,0,y,0,steel);}else{const core=cylinder(bridge,w*.48,w*.51,h,0,y,0,steel,20);core.scale.z=d/w;}
     const roof=cylinder(bridge,w*.53,w*.53,.18,0,y+h*.5+.15,0,edgeSteel,20);roof.scale.z=(d+.6)/(w+1);
-    if(y>=6){const panes=mesh(new THREE.CylinderGeometry(w*.49+.04,w*.49+.04,.48,24,1,true,Math.PI/2,Math.PI),glass,bridge,0,y+.25,0);panes.scale.z=d/w;}
+    if(y>=6&&y<10){box(bridge,w*.86,.54,.05,0,y+.3,-d/2-.035,glass);for(const side of [-1,1])box(bridge,.05,.54,d*.75,side*(w/2+.035),y+.3,0,glass);}
+    if(y>=10){const panes=mesh(new THREE.CylinderGeometry(w*.49+.04,w*.49+.04,.48,24,1,true,Math.PI/2,Math.PI),glass,bridge,0,y+.25,0);panes.scale.z=d/w;}
   }
+  for(const [y,w,z] of [[9.8,14,-.9],[13.5,12,-.3],[17.2,9,0]]){box(bridge,w,.23,3.8,0,y,z,edgeSteel);for(const side of [-1,1]){box(bridge,2.1,.9,2.9,side*(w/2-1),y+.55,z,darkSteel);box(bridge,1.7,.35,.05,side*(w/2-1),y+.7,z-1.5,glass);line([side*w/2,y+.85,z+32],[side*w/2,y+.85,z+36]);}}
+  for(const side of [-1,1]){line([side*3,3.2,28],[side*3,19.5,32]);for(let y=4;y<19;y+=.65)line([side*3-.3,y,28+(y-3.2)*.24],[side*3+.3,y,28+(y-3.2)*.24]);}
   cylinder(bridge,.15,.28,9,0,24.5,1,edgeSteel,10);
   for(const [y,w] of [[22,13],[25,9],[28,6]]){box(bridge,w,.12,.12,0,y,1,darkSteel);line([-w/2,y,35],[0,29,35]);line([w/2,y,35],[0,29,35]);}
   for(const side of [-1,1]){const leg=cylinder(bridge,.2,.32,15,side*2.2,16.8,2.5,darkSteel,8);leg.rotation.z=side*.16;box(bridge,4,.8,1.2,side*5.5,20.3,0,darkSteel);}
