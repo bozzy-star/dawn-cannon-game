@@ -137,3 +137,28 @@ body:has(#reviewPanel:not(.hidden)) #controls,body:has(#reviewPanel:not(.hidden)
 @media(orientation:portrait) and (max-width:360px){#tactical .tactical-primary button{min-height:44px}}
 
 #portInspect{grid-column:1/-1;justify-self:start;min-height:36px;padding:7px 16px;font-size:11px;border:1px solid #66898d;background:#1a3540;color:#c1dcdf}
+/* v6: full-size sea view, direct controls and independent main guns. */
+#radarScope{display:none!important}
+#tactical{width:min(490px,calc(100% - 48px));bottom:calc(130px + env(safe-area-inset-bottom));background:transparent;border:0;padding:0;box-shadow:none}
+.tactical-primary{grid-template-columns:repeat(3,minmax(0,1fr))}
+#tactical .tactical-primary button{min-height:44px;font-size:12px;letter-spacing:1px}
+#directTactical{display:flex;gap:5px;align-items:stretch;margin-top:6px;flex-wrap:wrap}
+#directTactical button,#directTactical label{min-height:38px;min-width:68px;flex:1;padding:6px;font-size:10px;line-height:1.4;border:1px solid #66879588;border-radius:3px;background:#132833d9;display:flex;align-items:center;justify-content:center;gap:5px}
+#directTactical label{flex:0 1 auto}#directTactical #contact{flex:1.6;min-width:100px}
+#autoAAStatus{font-size:10px;color:#b7d6c2;line-height:1.5;margin-top:4px;text-shadow:0 1px 3px #061723;pointer-events:none}
+.gun{width:65px}.gun span{font-size:8px;letter-spacing:0}.gun:disabled{opacity:.4}
+#shopView{display:block}#gunShopCards{margin-bottom:22px}#shopCards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.gun-upgrade-group{border:1px solid #54737d77;border-radius:5px;padding:15px;margin:12px 0;background:#12273477}
+.gun-upgrade-group>header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px}.gun-upgrade-group>header small{font-size:9px;letter-spacing:2px;color:#9ab5bf}.gun-upgrade-group>header h3{margin:0;font-size:15px;font-weight:400;color:#eac98d}.gun-upgrade-group>header span{font-size:10px;color:#aec3cb;margin-left:auto}
+.gun-upgrade-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.gun-upgrade-cards .shop-card{min-width:0}.gun-upgrade-cards .shop-card h3{font-size:14px}
+.gun-expansion{display:flex;align-items:center;gap:18px;padding:15px;border:1px solid #c3a16b88;border-radius:5px;background:#5a492c33}.gun-expansion small{font-size:9px;letter-spacing:2px;color:#d4b982}.gun-expansion h3{margin:7px 0;font-size:17px;font-weight:400}.gun-expansion p{font-size:11px;color:#b7c9cf;line-height:1.7;margin:0}.gun-expansion button{flex:none;min-height:44px;padding:10px 15px;background:#d6b57a;color:#182a30;border:1px solid #efd4a1;border-radius:3px;font-size:11px;touch-action:pan-y}.gun-expansion button:disabled{background:#354952;color:#96a9ae;border-color:#607781}
+@media(max-height:500px){#tactical{bottom:calc(111px + env(safe-area-inset-bottom));left:16px;width:min(430px,calc(100% - 32px))}#tactical .tactical-primary button{font-size:10px}#directTactical button,#directTactical label{min-height:35px;font-size:9px}#autoAAStatus{font-size:9px}.gun{width:56px}.gun-upgrade-group{padding:10px}.gun-upgrade-cards{gap:6px}}
+@media(max-width:700px){#shopCards,.gun-upgrade-cards{grid-template-columns:1fr}.gun-upgrade-group>header span{margin-left:0;width:100%}.gun-expansion{flex-direction:column;align-items:stretch;gap:10px}.gun-expansion button{width:100%}}
+@media(orientation:portrait) and (max-width:700px){
+ #controls{display:grid;grid-template-columns:1fr;gap:8px;left:12px;right:12px;bottom:calc(13px + env(safe-area-inset-bottom))}
+ .battery{display:flex;align-items:center;justify-content:space-between;gap:5px}.battery small{font-size:9px;max-width:78px;line-height:1.5;margin:0;letter-spacing:0}.gun-row{gap:4px}.gun{width:44px;min-width:44px;height:45px}.gun b{font-size:18px}.gun span{font-size:7px}
+ .trigger{justify-content:flex-end;gap:9px}#special{width:72px;height:54px}#salvo{width:60px;height:54px}#fire{width:73px;height:73px}.trigger #special b{font-size:14px}
+ #tactical{bottom:calc(154px + env(safe-area-inset-bottom));left:12px;width:calc(100% - 24px)}
+ #directTactical button,#directTactical label{min-height:34px;font-size:9px;min-width:65px}#directTactical #contact{min-width:95px}#autoAAStatus{font-size:9px}
+ #weatherHUD,#objectiveHUD{max-width:calc(100% - 24px)}
+}

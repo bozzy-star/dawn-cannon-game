@@ -1,12 +1,26 @@
 const REPORTS = Object.freeze({
-  sunk: { file: 'enemy-sunk', text: '敵艦、撃沈！', priority: 1, cooldown: 2100 },
-  spotted: { file: 'air-spotted', text: '敵機発見！', priority: 2, cooldown: 5500 },
-  bow: { file: 'hit-bow', text: '艦首、被弾！', priority: 3, cooldown: 2300 },
-  stern: { file: 'hit-stern', text: '艦尾、被弾！', priority: 3, cooldown: 2300 },
-  port: { file: 'hit-port', text: '左舷、被弾！', priority: 3, cooldown: 2300 },
-  starboard: { file: 'hit-starboard', text: '右舷、被弾！', priority: 3, cooldown: 2300 },
-  bridge: { file: 'hit-bridge', text: '艦橋、被弾！', priority: 3, cooldown: 2300 },
-  engine: { file: 'hit-engine', text: '機関部、被弾！', priority: 3, cooldown: 2300 },
+  sunk: { file: 'enemy-sunk', text: '敵艦！ 撃沈ッ！', priority: 1, cooldown: 1900 },
+  destroyer: { file: 'sunk-destroyer', text: '敵、駆逐艦、撃沈！', priority: 1, cooldown: 1900 },
+  cruiser: { file: 'sunk-cruiser', text: '敵、巡洋艦、撃沈！', priority: 1, cooldown: 1900 },
+  battleship: { file: 'sunk-battleship', text: '敵、戦艦、撃沈！', priority: 1, cooldown: 1900 },
+  carrier: { file: 'sunk-carrier', text: '敵、空母、撃沈！', priority: 1, cooldown: 1900 },
+  submarine: { file: 'sunk-submarine', text: '敵、潜水艦、撃沈！', priority: 1, cooldown: 1900 },
+  fire: { file: 'fire-command', text: '撃てえーッ！', priority: 0, cooldown: 4200 },
+  salvo: { file: 'salvo-command', text: '全砲門！ 撃てえーッ！', priority: 0, cooldown: 4200 },
+  spotted: { file: 'air-spotted', text: '敵機発見！ 来るぞッ！', priority: 2, cooldown: 5500 },
+  bow: { file: 'hit-bow', text: '艦首、被弾！ 被弾だッ！', priority: 3, cooldown: 2600 },
+  stern: { file: 'hit-stern', text: '艦尾、被弾！ 被弾だッ！', priority: 3, cooldown: 2600 },
+  port: { file: 'hit-port', text: '左舷、被弾！ 被弾だッ！', priority: 3, cooldown: 2600 },
+  starboard: { file: 'hit-starboard', text: '右舷、被弾！ 被弾だッ！', priority: 3, cooldown: 2600 },
+  bridge: { file: 'hit-bridge', text: '艦橋、被弾！ 被弾だッ！', priority: 3, cooldown: 2600 },
+  engine: { file: 'hit-engine', text: '機関部、被弾！ 被弾だッ！', priority: 3, cooldown: 2600 },
+});
+const SHIP_REPORTS = Object.freeze({
+  destroyer: 'destroyer', 駆逐艦: 'destroyer',
+  cruiser: 'cruiser', 巡洋艦: 'cruiser',
+  battleship: 'battleship', 戦艦: 'battleship',
+  carrier: 'carrier', carrier3: 'carrier', carrier5: 'carrier', carrier10: 'carrier', 空母: 'carrier',
+  submarine: 'submarine', 潜水艦: 'submarine',
 });
 const HIT_LOCATIONS = Object.freeze({
   bow: 'bow', 艦首: 'bow', 船首: 'bow', 前部: 'bow',
@@ -44,6 +58,7 @@ export class CannonAudio {
     this._reportKey = null;
     this._reportLast = new Map();
     this._lastHitReport = -Infinity;
+    this._lastFireReport = -Infinity;
     this._refreshSpeechVoice = () => {
       try {
         const voices = this._speech?.getVoices().filter(voice =>
@@ -153,8 +168,16 @@ export class CannonAudio {
   }
 
   /** Voice only; keep sinking() and morse() as independent effects. */
-  sunk() {
-    return this._report('sunk', REPORTS.sunk, this._recordedSunk);
+  sunk(kind = '') {
+    const label = String(kind).trim();
+    const key = Object.prototype.hasOwnProperty.call(SHIP_REPORTS, label) ? SHIP_REPORTS[label] : 'sunk';
+    return this._report(key, REPORTS[key], this._recordedReports[key] || (key === 'sunk' ? this._recordedSunk : null));
+  }
+
+  /** A short order shares the report channel and never masks incoming damage. */
+  fireCommand(salvo = false) {
+    const key = salvo ? 'salvo' : 'fire';
+    return this._report(key, REPORTS[key], this._recordedReports[key]);
   }
 
   airSpotted(count = 1) {
@@ -175,6 +198,7 @@ export class CannonAudio {
     const now = globalThis.performance?.now() ?? Date.now();
     if (now - (this._reportLast.get(key) ?? -Infinity) < spec.cooldown) return false;
     if (spec.priority === 3 && now - this._lastHitReport < 950) return false;
+    if ((key === 'fire' || key === 'salvo') && now - this._lastFireReport < 4200) return false;
     // Reports are never queued: stale sightings/sinkings must not play later.
     // Only a more urgent report can interrupt the current voice.
     if (now < this._reportUntil && spec.priority <= this._reportPriority) return false;
@@ -186,6 +210,7 @@ export class CannonAudio {
     this._reportLast.set(key, now);
     this._lastAnnouncement = now;
     if (spec.priority === 3) this._lastHitReport = now;
+    if (key === 'fire' || key === 'salvo') this._lastFireReport = now;
     if (!buffer) return this._speakReport(spec.text);
     const source = context.createBufferSource();
     source.buffer = buffer;
@@ -304,9 +329,9 @@ export class CannonAudio {
       this._refreshSpeechVoice();
       const utterance = new globalThis.SpeechSynthesisUtterance(String(text));
       utterance.lang = 'ja-JP';
-      utterance.rate = 1.2;
-      utterance.pitch = 1.06;
-      utterance.volume = 0.9;
+      utterance.rate = 1.24;
+      utterance.pitch = 1.1;
+      utterance.volume = 1;
       if (this._speechVoice) utterance.voice = this._speechVoice;
       const clear = () => {
         if (this._utterance === utterance) {
@@ -349,6 +374,7 @@ export class CannonAudio {
     this._recordedReports = Object.create(null);
     this._reportLast.clear();
     this._lastHitReport = -Infinity;
+    this._lastFireReport = -Infinity;
     this._morseBusyUntil = -Infinity;
     this._speech?.removeEventListener?.('voiceschanged', this._refreshSpeechVoice);
     for (const voice of this._voices) {
@@ -372,7 +398,7 @@ export class CannonAudio {
       this._voiceLoadAbort = controller;
       const loaded = await Promise.all(Object.entries(REPORTS).map(async ([key, spec]) => {
         try {
-          const response = await fetch(new URL(`./assets/${spec.file}.wav?v=asahi-v5`, import.meta.url), {
+          const response = await fetch(new URL(`./assets/${spec.file}.wav?v=asahi-v6`, import.meta.url), {
             cache: 'force-cache', ...(controller ? { signal: controller.signal } : {}),
           });
           if (!response.ok) return false;

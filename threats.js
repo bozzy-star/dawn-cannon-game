@@ -7,24 +7,61 @@ const ORIGIN = new THREE.Vector3(0, 0, 0);
 const clamp = THREE.MathUtils.clamp;
 
 function combinedAircraftGeometry() {
-  const vertices = [];
-  for (const [w, h, d, x, y, z] of [
-    [.7, .65, 4.4, 0, 0, 0], [6.1, .13, 1.05, 0, -.15, .55],
-    [2.2, .12, .65, 0, .1, -1.7], [.13, 1.1, .8, 0, .5, -1.7],
-    [.5, .45, 1.05, 0, .4, .5], [1.65, .13, .16, 0, 0, 2.25],
-  ]) {
-    const box = new THREE.BoxGeometry(w, h, d).toNonIndexed();
-    const p = box.getAttribute('position');
-    for (let i = 0; i < p.count; i++) vertices.push(p.getX(i) + x, p.getY(i) + y, p.getZ(i) + z);
-    box.dispose();
+  // One merged, vertex-coloured model keeps 120 aircraft in one draw call.
+  // Rounded silver fuselage, tapered wings, four radial-engine nacelles and a
+  // glazed nose follow the reference bomber without real-world insignia.
+  const vertices = [], colors = [];
+  const append = (geometry, color) => {
+    const flat = geometry.index ? geometry.toNonIndexed() : geometry;
+    const position = flat.getAttribute('position'), tint = new THREE.Color(color);
+    for (let i = 0; i < position.count; i++) {
+      vertices.push(position.getX(i), position.getY(i), position.getZ(i));
+      colors.push(tint.r, tint.g, tint.b);
+    }
+    if (flat !== geometry) flat.dispose(); geometry.dispose();
+  };
+  const box = (w, h, d, x, y, z, color) => {
+    const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); append(g, color);
+  };
+  const ellipsoid = (rx, ry, rz, x, y, z, color) => {
+    const g = new THREE.SphereGeometry(1, 12, 8); g.scale(rx, ry, rz); g.translate(x, y, z); append(g, color);
+  };
+  const cylinder = (radius, length, x, y, z, color) => {
+    const g = new THREE.CylinderGeometry(radius, radius, length, 10); g.rotateX(Math.PI / 2); g.translate(x, y, z); append(g, color);
+  };
+  const wing = (points, height, y, color) => {
+    const shape = new THREE.Shape(); shape.moveTo(points[0][0], points[0][1]);
+    for (const [x,z] of points.slice(1)) shape.lineTo(x,z); shape.closePath();
+    const g = new THREE.ExtrudeGeometry(shape, {depth:height,bevelEnabled:false});
+    // Shape xy becomes the horizontal xz plane; thickness extends down from y.
+    g.rotateX(Math.PI / 2); g.translate(0,y,0); append(g,color);
+  };
+  ellipsoid(.47,.5,2.75,0,0,0,0xb5babe);
+  ellipsoid(.42,.39,.75,0,.1,2.12,0x6d8c94);
+  box(.1,.05,1.15,0,.51,1.38,0xc6cccd);
+  for (const sign of [-1,1]) {
+    wing([[sign*.32,1.05],[sign*3.45,.3],[sign*3.55,-.1],[sign*.34,-.3]],.14,-.1,0xbfc4c5);
+    wing([[sign*.2,-1.7],[sign*1.43,-2.15],[sign*1.5,-2.52],[sign*.2,-2.4]],.12,.12,0xadb5ba);
+    for (const span of [1.25,2.48]) {
+      const x=sign*span;
+      cylinder(.25,1.18,x,-.12,.55,0x939da4);
+      cylinder(.27,.16,x,-.12,1.14,0x343d45);
+      cylinder(.09,.2,x,-.12,1.28,0xa0a7aa);
+      box(.045,1.0,.045,x,-.12,1.41,0x454b51);
+      box(1.0,.045,.045,x,-.12,1.41,0x454b51);
+    }
   }
+  const fin=new THREE.Shape();fin.moveTo(-2.43,.18);fin.lineTo(-2.43,1.17);fin.lineTo(-1.94,.98);fin.lineTo(-1.64,.18);fin.closePath();
+  const finGeo=new THREE.ExtrudeGeometry(fin,{depth:.1,bevelEnabled:false});finGeo.rotateY(-Math.PI/2);finGeo.translate(.05,0,0);append(finGeo,0xaeb8bf);
+  box(.3,.15,.44,0,.53,-.14,0x747e84);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geo.computeVertexNormals();
   return geo;
 }
 
-/** Air attacks, manually aimed AA, sonar, submarine torpedoes, and ASW weapons.
+/** Air attacks, automatic AA, sonar, submarine torpedoes, and ASW weapons.
  * Scene objects for aircraft use one InstancedMesh, including the patrol plane.
  * Callback damage and rewards are owned by the main campaign/combat controller.
  */
@@ -43,7 +80,7 @@ export class NavalThreats {
     this.nextId = 1; this.shipRecords = new Map(); this.aircraft = [];
     this.bombs = []; this.torpedoes = []; this.projectiles = []; this.tracers = []; this.mines = [];
     this.pending = 0; this.airKills = 0; this.sonarOn = false;
-    this.aswCooldown = 0; this.aaCooldown = 0; this.pingCooldown = 0; this.aaMode = 'manual';
+    this.aswCooldown = 0; this.aaCooldown = 0; this.pingCooldown = 0; this.aaMode = 'auto';
     this.time = 0; this.patrol = null; this.buoyDeployed = false;
     this.geometries = []; this.materials = []; this.initialized = false;
     this.dummy = new THREE.Object3D(); this.scratch = new THREE.Vector3();
@@ -65,7 +102,7 @@ export class NavalThreats {
     this.geometries = []; this.materials = [];
     this.group = new THREE.Group(); this.group.name = 'naval-threats'; this.scene.add(this.group);
     this.planeGeo = this._geometry(combinedAircraftGeometry());
-    this.planeMat = this._material(new THREE.MeshStandardMaterial({ color: 0x777951, roughness: .76, metalness: .25 }));
+    this.planeMat = this._material(new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: .48, metalness: .64 }));
     this.planes = new THREE.InstancedMesh(this.planeGeo, this.planeMat, MAX_AIRCRAFT + 1);
     this.planes.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.planes.count = 0; this.planes.frustumCulled = false;
@@ -85,7 +122,7 @@ export class NavalThreats {
     this.torpedoes.length = 0; this.projectiles.length = 0; this.tracers.length = 0; this.mines.length = 0;
     this.pending = 0; this.airKills = 0; this.aswCooldown = 0; this.aaCooldown = 0;
     this.pingCooldown = .6; this.time = 0; this.patrol = null; this.buoyDeployed = false;
-    this.aaMode = 'manual'; this.assistCooldown = 0;
+    this.aaMode = 'auto'; this.aaTargetId = null; this.aaShots = 0;
     this.sonarOn = (this.getUpgrades().sonar || 0) >= 3;
     this.initialized = true;
   }
@@ -101,7 +138,8 @@ export class NavalThreats {
       const n = this.nextId++;
       this.aircraft.push({ id: n, position: new THREE.Vector3(ship.position.x + (n % 12 - 5.5) * 8 + Math.random() * 5, 26 + (n % 5) * 3, ship.position.z - 300 - Math.random() * 100),
         hp: 3.2, phase: Math.random() * Math.PI * 2, state: 'approach', bombed: false,
-        speed: 33 + Math.random() * 10, targetX: (Math.random() - .5) * 12, bombTimer: 0, bombCount: 0 });
+        speed: 28 + Math.random() * 7, targetX: (Math.random() - .5) * 18, bombTimer: 0, bombCount: 0,
+        velocity: new THREE.Vector3(0, 0, 30), launchDelay: Math.floor((n - 1) % 120 / 8) * .28, attackAge: 0, direction: new THREE.Vector3(0, 0, 1), returnTime: 0 });
     }
   }
 
@@ -139,10 +177,67 @@ export class NavalThreats {
     this.audio?.impact?.(clamp(mine.mesh.position.x / 100, -1, 1), false);
     this.group.remove(mine.mesh); this.mines.splice(index, 1);
   }
+  // Kept for callers from older saves/UI; automatic defense cannot be disabled.
   toggleAAMode() {
-    if (!(this.getUpgrades().aa > 0)) return { ok: false, mode: this.aaMode, reason: '高角砲未配備' };
-    this.aaMode = this.aaMode === 'manual' ? 'auto' : 'manual';
-    return { ok: true, mode: this.aaMode, reason: this.aaMode === 'manual' ? '高角砲 手動照準・命中威力強化' : '補助対空射撃・手動射撃で迎撃を補ってください' };
+    const level = this.getUpgrades().aa || 0;
+    this.aaMode = 'auto';
+    return { ok: level > 0, mode: 'auto', reason: level ? '対空砲は常時自動迎撃します' : '高角砲未配備' };
+  }
+  _aaRange(upgrades = this.getUpgrades()) {
+    const aa = upgrades.aa || 0, radar = upgrades.radar || 0;
+    const base = aa >= 3 ? 265 : aa >= 2 ? 235 : 210;
+    return base * (1 + Math.min(radar, 2) * .23 + (radar >= 3 ? .18 : 0)) * (this.getWeather()?.radarFactor ?? 1);
+  }
+  _automaticTarget(upgrades, ship) {
+    const range = this._aaRange(upgrades);
+    let target = null, best = Infinity;
+    const reserved = new Set(this.projectiles.filter(p => p.kind === 'aa' && p.targetId != null).map(p => p.targetId));
+    for (const a of this.aircraft) {
+      if (a.launchDelay > 0 || reserved.has(a.id)) continue;
+      const distance = a.position.distanceTo(ship.position);
+      if (distance > range) continue;
+      // A bomber on its attack pass has priority over one flying away. Existing
+      // shells reserve their targets, so both guns do not waste a salvo on one plane.
+      const priority = distance + (a.state === 'return' ? 150 : 0);
+      if (priority < best) { best = priority; target = { ...a, kind: 'aircraft', distance }; }
+    }
+    // With the screen reserved for main-gun aiming, the same mounts sweep visible
+    // nearby mines. Their short range leaves time to choose torpedoes or evasion.
+    for (const m of this.mines) {
+      if (reserved.has(m.id)) continue;
+      const distance = m.mesh.position.distanceTo(ship.position);
+      if (distance > Math.min(105, range)) continue;
+      const priority = distance + 40;
+      if (priority < best) { best = priority; target = { id: m.id, kind: 'mine', position: m.mesh.position.clone(), velocity: ORIGIN, distance }; }
+    }
+    return target;
+  }
+  _fireAutomaticAA(target, upgrades, ship) {
+    const level = upgrades.aa || 0, radar = upgrades.radar || 0;
+    if (!level || !target || this.aaCooldown > 0) return false;
+    if (!this.consume('aa', 1)) return false;
+    const start = ship.position.clone().add(new THREE.Vector3(this.aaShots++ % 2 ? -8 : 8, 4.8, -4));
+    const close = target.kind === 'aircraft' && target.distance < 70 && level >= 2;
+    const speed = close ? 340 : level >= 2 ? 275 : 235, vt = radar >= 3;
+    const targetVelocity = target.velocity?.clone?.() || new THREE.Vector3();
+    // Solve a physical intercept and compensate gravity. Radar fire control also
+    // compensates wind; basic directors remain less precise at long distance.
+    const relative = target.position.clone().sub(start), aa = targetVelocity.lengthSq() - speed * speed;
+    const bb = 2 * relative.dot(targetVelocity), cc = relative.lengthSq(), disc = bb * bb - 4 * aa * cc;
+    const t = disc >= 0 && Math.abs(aa) > .001 ? Math.max(.01, (-bb - Math.sqrt(disc)) / (2 * aa)) : relative.length() / speed;
+    const aim = target.position.clone().addScaledVector(targetVelocity, t);
+    const weather = this.getWeather() || {};
+    aim.y += 1.2 * t * t;
+    if (vt) { aim.x -= (weather.windX || 0) * .275 * t * t; aim.z -= (weather.windZ || 0) * .275 * t * t; }
+    const velocity = aim.sub(start).normalize().multiplyScalar(speed);
+    const mesh = this._mesh(this.smallGeo, this.tracerMat, start); mesh.scale.setScalar(close ? 1.8 : 2.7);
+    this.projectiles.push({ kind: 'aa', mesh, velocity, time: 0, life: this._aaRange(upgrades) / speed + .35,
+      level, vt, automatic: true, targetId: target.id, damage: level >= 3 ? 6.4 : level >= 2 ? 4.8 : 3.8,
+      radius: vt ? 12 : level >= 3 ? 8 : close ? 4.4 : 5.2 });
+    this.aaCooldown = close ? .22 : vt ? .28 : level >= 3 ? .38 : level >= 2 ? .46 : .72;
+    this.aaTargetId = target.id;
+    this.audio?.aircraftHit?.(clamp(velocity.x / speed, -1, 1), 0);
+    return true;
   }
   fireAA() {
     const upgrades = this.getUpgrades(), level = upgrades.aa || 0;
@@ -154,7 +249,7 @@ export class NavalThreats {
     const start = aim.origin?.clone?.() || this._maneuver().position.clone().add(new THREE.Vector3(0, 5, -4));
     const mesh = this._mesh(this.smallGeo, this.tracerMat, start); mesh.scale.setScalar(2.7);
     const radar = upgrades.radar || 0, weather = this.getWeather() || {}, vt = radar >= 3;
-    const range = (level >= 3 ? 280 : 225) * (1 + Math.min(radar, 2) * .25) * (weather.radarFactor ?? 1);
+    const range = this._aaRange(upgrades);
     const velocity = direction.normalize().multiplyScalar(level >= 2 ? 260 : 220);
     // Manual fire travels to the crosshair. Motion and wind require leading the target;
     // fire-control VT widens the burst without making the projectile home onto it.
@@ -213,7 +308,7 @@ export class NavalThreats {
     const aim = this.getAim() || {}, origin = aim.origin || this._maneuver().position, direction = aim.direction;
     if (!direction || direction.lengthSq() < .1) return null;
     const ray = new THREE.Ray(origin, direction.clone().normalize());
-    const upgrades = this.getUpgrades(), range = (upgrades.aa >= 3 ? 280 : 225) * (1 + Math.min(upgrades.radar || 0, 2) * .25) * (this.getWeather()?.radarFactor ?? 1);
+    const upgrades = this.getUpgrades(), range = this._aaRange(upgrades);
     let best = null, score = Infinity;
     for (const a of this.aircraft) {
       const vector = a.position.clone().sub(origin), distance = vector.length(), forward = vector.dot(ray.direction);
@@ -236,7 +331,8 @@ export class NavalThreats {
   }
   get stats() {
     return { airborne: this.aircraft.length, pending: this.pending, airKills: this.airKills,
-      aaMode: this.aaMode, aaCooldown: this.aaCooldown, aaActive: this.projectiles.filter(p => p.kind === 'aa').length, mines: this.mines.length,
+      aaMode: 'auto', aaStatus: !(this.getUpgrades().aa > 0) ? '未配備' : this.getUpgrades().radar >= 3 ? '自動レーダー迎撃 / VT' : '自動迎撃',
+      aaRange: Math.round(this._aaRange() * METRES_PER_UNIT), aaTargetId: this.aaTargetId, aaShots: this.aaShots, aaCooldown: this.aaCooldown, aaActive: this.projectiles.filter(p => p.kind === 'aa').length, mines: this.mines.length,
       sonarOn: this.sonarOn, sonarMode: this.sonarMode, sonarReady: this.buoyDeployed,
       aswCooldown: this.aswCooldown, aswActive: this.projectiles.filter(p => p.kind === 'asw').length, subCount: this.contacts.length,
       bombs: this.bombs.length, torpedoes: this.torpedoes.length };
@@ -279,60 +375,42 @@ export class NavalThreats {
   _tickAircraft(dt, upgrades) {
     const ship = this._maneuver();
     for (const a of this.aircraft) {
-      a.phase += dt;
+      const before = a.position.clone(); a.phase += dt;
+      a.launchDelay = Math.max(0, (a.launchDelay || 0) - dt);
+      if (a.launchDelay > 0) { a.velocity?.set(0, 0, 0); continue; }
+      a.attackAge = (a.attackAge || 0) + dt;
       if (a.state === 'approach') {
-        a.position.z += a.speed * dt;
-        a.position.x += (ship.position.x + a.targetX - a.position.x) * dt * .36;
-        a.position.y += (22 + Math.sin(a.phase * .8) * 2 - a.position.y) * dt * .25;
+        const toShip = ship.position.clone().sub(a.position); toShip.y = 0;
+        const distance = toShip.length();
+        if (distance > 1) a.direction.copy(toShip).normalize();
+        // Four seconds of warning before a near carrier can begin its bomb run.
+        const speed = distance < 92 && a.attackAge < 4 ? a.speed * .08 : a.speed;
+        a.position.addScaledVector(a.direction, speed * dt);
+        a.position.y += (26 + Math.sin(a.phase * .8) * 2 - a.position.y) * dt * .25;
+        if (distance < 95 && a.attackAge >= 4) { a.state = 'run'; a.bombTimer = .25; }
+      } else if (a.state === 'run') {
+        a.position.addScaledVector(a.direction, a.speed * dt);
+        const along = ship.position.clone().sub(a.position).dot(a.direction);
         a.bombTimer -= dt;
-        if (a.position.z > ship.position.z - 75 && a.position.z < ship.position.z + 12 && a.bombCount < 3 && a.bombTimer <= 0) {
-          this._dropBomb(a); a.bombCount++; a.bombTimer = .35;
+        if (along < 75 && along > -12 && a.bombCount < 2 && a.bombTimer <= 0) {
+          this._dropBomb(a); a.bombCount++; a.bombTimer = .8;
         }
-        if (a.position.z > ship.position.z + 80) a.state = 'return';
+        if (along < -100) { a.state = 'return'; a.returnTime = 0; }
       } else {
-        a.position.z -= a.speed * 1.5 * dt;
-        a.position.y += (42 - a.position.y) * dt * .8;
-        a.position.x += (ship.position.x + 90 * Math.sin(a.phase * .25) - a.position.x) * dt * .3;
-        if (a.position.z < ship.position.z - 330) { a.state = 'approach'; a.bombed = false; a.bombCount = 0; }
-      }
-    }
-    this.aaCooldown = Math.max(0, this.aaCooldown - dt); this.assistCooldown -= dt;
-    const aa = upgrades.aa || 0, radar = upgrades.radar || 0;
-    if (this.aaMode === 'auto' && aa > 0 && this.assistCooldown <= 0 && this.aircraft.length) {
-      let best = -1, distance = Infinity;
-      const range = (aa >= 3 ? 245 : 200) * (1 + Math.min(radar, 2) * .25) * (this.getWeather()?.radarFactor ?? 1);
-      for (let i = 0; i < this.aircraft.length; i++) {
-        const d = this.aircraft[i].position.distanceTo(ship.position);
-        if (d > range || (aa === 1 && d < 45)) continue;
-        if (d < distance) { best = i; distance = d; }
-      }
-      if (best >= 0) {
-        const close = distance < 55 && aa >= 2;
-        this.assistCooldown = close ? .8 : aa >= 3 ? 1.0 : 1.6;
-        if (this.consume('aa', 1)) {
-          const target = this.aircraft[best], mount = ship.position.clone().add(new THREE.Vector3(best % 2 ? -8 : 8, 4.8, -4));
-          this._segment(mount, target.position);
-          const vt = radar >= 3;
-          const accuracy = vt ? .75 : clamp(.25 + radar * .07 + (close ? .15 : 0), 0, .65);
-          if (Math.random() < accuracy) {
-            target.hp -= (aa >= 3 ? .85 : close ? .7 : .5) * (vt ? 1.4 : 1);
-            this.onEffect(target.position.clone(), 'blast', close ? .16 : .32);
-            if (target.hp <= 0) this._killAircraft(best);
-          }
-          // VT/special ammunition detonates beside aircraft and reaches a nearby
-          // formation partner, rather than only increasing a hidden accuracy stat.
-          if (vt || aa >= 3) {
-            for (let i = this.aircraft.length - 1; i >= 0; i--) {
-              const other = this.aircraft[i]; if (other === target) continue;
-              if (other.position.distanceTo(target.position) < (vt ? 11 : 7)) {
-                other.hp -= vt ? .4 : .2;
-                if (other.hp <= 0) this._killAircraft(i);
-              }
-            }
-          }
+        a.returnTime = (a.returnTime || 0) + dt;
+        a.position.addScaledVector(a.direction, a.speed * 1.25 * dt);
+        a.position.y += (46 - a.position.y) * dt * .45;
+        if (a.returnTime > 8 && a.position.distanceTo(ship.position) > 330) {
+          a.state = 'approach'; a.bombCount = 0; a.attackAge = 0;
         }
       }
+      if (!a.velocity) a.velocity = new THREE.Vector3();
+      a.velocity.copy(a.position).sub(before).divideScalar(dt);
     }
+    this.aaCooldown = Math.max(0, this.aaCooldown - dt);
+    const target = this._automaticTarget(upgrades, ship);
+    this.aaTargetId = target?.id ?? null;
+    if ((upgrades.aa || 0) > 0) this._fireAutomaticAA(target, upgrades, ship);
     this._fillRaid();
     for (let i = this.bombs.length - 1; i >= 0; i--) {
       const b = this.bombs[i]; b.life -= dt; b.velocity.y -= 18 * dt;
@@ -342,7 +420,7 @@ export class NavalThreats {
         const p = b.mesh.position.clone(); p.y = .1;
         this.onEffect(p, 'splash', .75);
         const relative = p.clone().sub(ship.position);
-        if (Math.abs(relative.x) < 13 && relative.z > -30 && relative.z < 28) this._damage(15, 'bomb', p, ship);
+        if (Math.abs(relative.x) < 13 && relative.z > -30 && relative.z < 28) this._damage(7, 'bomb', p, ship);
         this.group.remove(b.mesh); this.bombs.splice(i, 1);
       }
     }
@@ -363,7 +441,7 @@ export class NavalThreats {
     let index = 0;
     for (const a of this.aircraft) {
       this.dummy.position.copy(a.position);
-      this.dummy.rotation.set(0, a.state === 'return' ? Math.PI : 0, Math.sin(a.phase) * .11);
+      this.dummy.rotation.set(0, Math.atan2(a.direction?.x || 0, a.direction?.z ?? 1), Math.sin(a.phase) * .11);
       this.dummy.scale.setScalar(1); this.dummy.updateMatrix(); this.planes.setMatrixAt(index++, this.dummy.matrix);
     }
     if (this.patrol) {
@@ -404,9 +482,10 @@ export class NavalThreats {
             for (let i = start; i < this.aircraft.length; i++) {
               const a = this.aircraft[i]; a.position.copy(e.root.position);
               a.position.x += (i - start - count / 2) * 3;
-              a.position.z += 5; a.position.y = 9 + (i - start) * .6;
+              a.position.z += 5; a.position.y = 18 + (i - start) * .6;
+              a.launchDelay = (i - start) * .24; a.attackAge = 0;
             }
-            r.launchTimer = 18 + Math.random() * 10;
+            r.launchTimer = 30 + Math.random() * 8;
           }
         }
         continue;

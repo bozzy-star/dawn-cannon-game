@@ -179,7 +179,7 @@ export const UPGRADES = freeze({
     { kind: 'weapon', level: 4, name: '光子主砲', description: '光の砲弾を放つ最終主砲。母港帰還後に解禁される。', price: 6500, unlockArea: 19 },
   ],
   gunPower: [
-    { kind:'gunPower',level:1,name:'主砲機構 I',description:'三連装主砲の砲身と駐退機を強化。主砲威力と射程を引き上げる。',price:700,unlockArea:3 },
+    { kind:'gunPower',level:1,name:'主砲機構 I',description:'選んだ1門の砲身と駐退機を強化。威力と射程を引き上げる。',price:700,unlockArea:3 },
     { kind:'gunPower',level:2,name:'主砲機構 II',description:'高圧砲身と安定装置。遠距離・並走戦での火力をさらに増す。',price:1700,unlockArea:13 },
     { kind:'gunPower',level:3,name:'主砲機構 III',description:'最終砲身機構。風と波のある決戦で長距離火力を支える。',price:3300,unlockArea:23 },
   ],
@@ -194,7 +194,7 @@ export const UPGRADES = freeze({
     { kind:'propeller',level:3,name:'スクリュー III',description:'最終推進器。航空・魚雷攻撃を避ける急転舵を支える。',price:2900,unlockArea:23 },
   ],
   reload: [
-    { kind: 'reload', level: 1, name: '給弾機構 I', description: '3門すべての装填時間を短縮する。', price: 400, unlockArea: 1 },
+    { kind: 'reload', level: 1, name: '給弾機構 I', description: '選んだ1門の装填時間を短縮する。各門に個別に装備する。', price: 400, unlockArea: 1 },
     { kind: 'reload', level: 2, name: '給弾機構 II', description: '高速給弾で砲撃の間隔をさらに短縮する。', price: 850, unlockArea: 7 },
     { kind: 'reload', level: 3, name: '給弾機構 III', description: '最終給弾機構。連続砲撃を支える。', price: 1500, unlockArea: 13 },
   ],
@@ -204,18 +204,18 @@ export const UPGRADES = freeze({
     { kind: 'armor', level: 3, name: '追加装甲 III', description: '最終防御区画。決戦の砲火に耐える。', price: 1800, unlockArea: 13 },
   ],
   special: [
-    { kind: 'special', level: 1, name: '龍神砲', description: '3門の出力を収束し、出現中の海上の敵艦と航空機を一掃する。龍神弾5単位を消費。出撃ごとに1回。潜水艦には対潜兵装が必要。', price: 2000, unlockArea: 2 },
+    { kind: 'special', level: 1, name: '龍神砲', description: '装備中の主砲の出力を収束し、出現中の海上の敵艦と航空機を一掃する。龍神弾5単位を消費。出撃ごとに1回。潜水艦には対潜兵装が必要。', price: 2000, unlockArea: 2 },
     { kind: 'special', level: 2, name: '龍神砲・蓄電槽', description: '一度の出撃で最大2回使用可能。南天列島防衛戦では各波で1回ずつ使う。龍神弾が必要。', price: 1500, unlockArea: 2 },
   ],
   aa: [
-    { kind: 'aa', level: 1, name: '高角砲', description: '中・長距離の爆撃機を手動射撃で迎撃する。対空弾を消費。', price: 600, unlockArea: 2 },
-    { kind: 'aa', level: 2, name: '対空機関砲', description: '高角砲に近距離の連射砲を追加し、接近機を迎撃する。', price: 1800, unlockArea: 5 },
-    { kind: 'aa', level: 3, name: '特殊対空弾', description: '強化した対空弾で大航空隊に対抗する。射撃管制のVT信管と組み合わせると範囲攻撃になる。', price: 3200, unlockArea: 11 },
+    { kind: 'aa', level: 1, name: '高角砲', description: '中・長距離の爆撃機を自動で迎撃する。対空弾を消費し、主砲の照準操作はそのまま続けられる。', price: 600, unlockArea: 2 },
+    { kind: 'aa', level: 2, name: '対空機関砲', description: '自動高角砲に近距離の自動連射砲を追加。接近した爆撃機を優先して迎撃する。', price: 1800, unlockArea: 5 },
+    { kind: 'aa', level: 3, name: '特殊対空弾', description: '自動対空射撃の火力を強化。最終レーダーと組み合わせると自動レーダー照準・VT信管による範囲迎撃になる。', price: 3200, unlockArea: 11 },
   ],
   radar: [
     { kind: 'radar', level: 1, name: '遠距離レーダー', description: '砲撃可能な距離を延長し、遠方の敵艦を捕捉する。', price: 900, unlockArea: 3 },
     { kind: 'radar', level: 2, name: '広域レーダー', description: '広域索敵と砲撃距離を延長し、距離・速度情報で遠距離の見越し射撃を助ける。雨では有効範囲が0.7倍。', price: 2200, unlockArea: 12 },
-    { kind: 'radar', level: 3, name: '射撃管制・VT信管', description: '射撃を補正し、対空弾が航空機の近くで爆発する近接信管を解禁する。', price: 4800, unlockArea: 22 },
+    { kind: 'radar', level: 3, name: '射撃管制・自動対空レーダー', description: '主砲の見越し射撃を補正。特殊対空弾と組み合わせ、自動レーダー照準と航空機の近くで爆発するVT信管で大航空隊を迎撃する。', price: 4800, unlockArea: 22 },
   ],
   sonar: [
     { kind: 'sonar', level: 1, name: 'パッシブソナー', description: 'ソナーONで潜水艦を探知。静粛運転のため主砲の装填時間は2倍になる。', price: 1300, unlockArea: 4 },
@@ -238,10 +238,21 @@ export const CONSUMABLES = freeze({
   fuel: { kind: 'fuel', name: '燃料', price: 180, amount: 600 },
 });
 
+export const GUN_EXPANSIONS = freeze([
+  {kind:'gunCount',level:2,name:'第2門増設',description:'基本主砲を1門増設。通常射撃は装備中の砲を第1門から順に発射する。',price:1400,unlockArea:2},
+  {kind:'gunCount',level:3,name:'第3門増設',description:'3門目の基本主砲を増設。各門の弾種・主砲機構・給弾は別々に強化できる。',price:2400,unlockArea:7},
+  {kind:'gunCount',level:4,name:'第4門増設',description:'最大4門の主砲に拡張。斉射では装填済みの砲が同時に発射する。',price:3800,unlockArea:13},
+]);
+
 const SAVE_KEY = 'asahi-cannon-campaign-v2';
 const LEGACY_SAVE_KEY = 'asahi-cannon-campaign-v1';
 const KINDS = Object.keys(UPGRADES);
 const SUPPLY_KINDS = Object.keys(CONSUMABLES);
+const GUN_FIELDS = {weapon:'weapon',gunPower:'power',reload:'reload'};
+const basicGun=()=>({weapon:0,power:0,reload:0});
+const syncGunUpgrades=(state)=>{
+  for(const [kind,field]of Object.entries(GUN_FIELDS))state.upgrades[kind]=Math.max(0,...state.guns.map(gun=>gun[field]));
+};
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const objectLike = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const finite = (value, fallback = 0) => typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -254,13 +265,13 @@ const initialZones=()=>Object.fromEntries(DAMAGE_ZONES.map(kind=>[kind,0]));
 const initialStock = () => ({ shell:180,aa:240,asw:30,dragon:0,fuel:900 });
 const OLD_UNLOCKS = { weapon:[1,2,3,4], reload:[1,2,4], armor:[1,2,4], special:[5] };
 const freshState = () => ({
-  version: 3, credits: 1200, unlockedArea: 1, conquered: [],
+  version: 4, credits: 1200, unlockedArea: 1, conquered: [], guns:[basicGun()],
   upgrades: Object.fromEntries(KINDS.map((kind) => [kind,0])), stock:initialStock(),records:{},legacyUpgrades:{},hull:100,damageZones:initialZones(),
 });
 
 function validateState(source) {
   const state = freshState();
-  if (!objectLike(source) || ![1,2,3].includes(source.version)) return state;
+  if (!objectLike(source) || ![1,2,3,4].includes(source.version)) return state;
   const migrated = source.version === 1;
   state.credits = integer(source.credits, 0, 1e9);
   // The one-time conversion grant equips returning captains for consumable play.
@@ -293,12 +304,30 @@ function validateState(source) {
       state.upgrades[kind] = level;
     }
   }
+  // Returning captains retain the three former barrels and their equipment.
+  // New campaigns start with one; v4 saves keep every barrel independently.
+  const legacyGun={weapon:state.upgrades.weapon,power:state.upgrades.gunPower,reload:state.upgrades.reload};
+  if(source.version<4)state.guns=Array.from({length:3},()=>({...legacyGun}));
+  else if(Array.isArray(source.guns)&&source.guns.length){
+    state.guns=source.guns.slice(0,4).map(sourceGun=>{
+      const gun=basicGun();
+      if(!objectLike(sourceGun))return gun;
+      for(const[kind,field]of Object.entries(GUN_FIELDS)){
+        let level=integer(sourceGun[field],0,UPGRADES[kind].length);
+        const legacy=state.legacyUpgrades[kind]||0;
+        while(level>legacy&&UPGRADES[kind][level-1].unlockArea>state.unlockedArea)level--;
+        gun[field]=level;
+      }
+      return gun;
+    });
+  }else state.guns=[{...legacyGun}];
+  syncGunUpgrades(state);
   if (!migrated && objectLike(source.stock)) {
     for (const kind of SUPPLY_KINDS) state.stock[kind] = own(source.stock,kind) ? Math.min(999999,integer(source.stock[kind],0,999999)*(source.version===2?5:1)) : 0;
   }
   if (migrated && state.upgrades.special > 0) state.stock.dragon=10;
   state.stock.fuel=Math.min(FUEL_CAPACITIES[state.upgrades.fuelTank],state.stock.fuel);
-  if(source.version===3){
+  if(source.version>=3){
     state.hull=bounded(source.hull,0,100,100);
     if(objectLike(source.damageZones))for(const kind of DAMAGE_ZONES)state.damageZones[kind]=bounded(source.damageZones[kind],0,100);
     if(objectLike(source.damageZones)&&own(source.damageZones,'deck'))state.damageZones.bridge=Math.max(state.damageZones.bridge,bounded(source.damageZones.deck,0,100));
@@ -329,7 +358,7 @@ export class CampaignStore {
       if (saved) {
         const decoded = JSON.parse(saved);
         this._state = validateState(decoded);
-        if ([1,2].includes(decoded?.version))this.save();
+        if ([1,2,3].includes(decoded?.version))this.save();
       }
     } catch { /* Memory-only progress remains playable. */ }
   }
@@ -341,6 +370,7 @@ export class CampaignStore {
   }
   get nextUpgradeKinds() { return KINDS.slice(); }
   nextUpgrade(kind) {
+    if(own(GUN_FIELDS,kind))return this.nextGunUpgrade(0,kind);
     if (!KINDS.includes(kind)) return null;
     const upgrade = UPGRADES[kind][integer(this._state.upgrades[kind],0,UPGRADES[kind].length)];
     return upgrade ? { ...upgrade } : null;
@@ -350,6 +380,7 @@ export class CampaignStore {
     return Boolean(upgrade && this._state.unlockedArea >= upgrade.unlockArea && this._state.credits >= upgrade.price);
   }
   buy(kind) {
+    if(own(GUN_FIELDS,kind))return this.buyGunUpgrade(0,kind);
     const upgrade = this.nextUpgrade(kind);
     if (!upgrade) return { ok:false, reason:KINDS.includes(kind) ? '最大まで強化済みです。' : '不明なパーツです。', upgrade:null };
     if (this._state.unlockedArea < upgrade.unlockArea) return { ok:false, reason:`第${upgrade.unlockArea}海域の解放後に購入できます。`, upgrade };
@@ -358,6 +389,55 @@ export class CampaignStore {
     this._state.upgrades[kind] = upgrade.level;
     this.save();
     return { ok:true, reason:`${upgrade.name}を装備しました。`, upgrade };
+  }
+
+  gunCount() { return this._state.guns.length; }
+
+  gunLoadout(index) {
+    if(!Number.isInteger(index)||index<0||index>=this.gunCount())return null;
+    return {...this._state.guns[index]};
+  }
+
+  nextGunUpgrade(index,kind) {
+    const gun=this.gunLoadout(index);
+    if(!gun||!own(GUN_FIELDS,kind))return null;
+    const upgrade=UPGRADES[kind][gun[GUN_FIELDS[kind]]];
+    return upgrade?{...upgrade,gunIndex:index,gunNumber:index+1}:null;
+  }
+
+  buyGunUpgrade(index,kind) {
+    const upgrade=this.nextGunUpgrade(index,kind);
+    if(!upgrade)return {ok:false,reason:!this.gunLoadout(index)?'この主砲は未装備です。主砲を増設してください。':!own(GUN_FIELDS,kind)?'不明な主砲パーツです。':'この主砲は最大まで強化済みです。',upgrade:null};
+    if(this._state.unlockedArea<upgrade.unlockArea)return {ok:false,reason:`第${upgrade.unlockArea}海域の解放後に購入できます。`,upgrade};
+    if(this._state.credits<upgrade.price)return {ok:false,reason:'資金が不足しています。制圧済み海域への再出撃でも資金を獲得できます。',upgrade};
+    this._state.credits-=upgrade.price;
+    this._state.guns[index][GUN_FIELDS[kind]]=upgrade.level;
+    this.save();
+    return {ok:true,reason:`第${index+1}門に${upgrade.name}を装備しました。`,upgrade};
+  }
+
+  nextGunExpansion() {
+    const expansion=GUN_EXPANSIONS[this.gunCount()-1];
+    return expansion?{...expansion}:null;
+  }
+
+  addGun() {
+    const upgrade=this.nextGunExpansion();
+    if(!upgrade)return {ok:false,reason:'主砲は最大の4門まで増設済みです。',upgrade:null};
+    if(this._state.unlockedArea<upgrade.unlockArea)return {ok:false,reason:`第${upgrade.unlockArea}海域の解放後に増設できます。`,upgrade};
+    if(this._state.credits<upgrade.price)return {ok:false,reason:'主砲増設の資金が不足しています。制圧済み海域への再出撃でも資金を獲得できます。',upgrade};
+    this._state.credits-=upgrade.price;
+    this._state.guns.push(basicGun());
+    this.save();
+    return {ok:true,reason:`第${upgrade.level}門を増設しました。各門の兵装を個別に強化できます。`,upgrade};
+  }
+
+  gunMeetsRequirements(index,areaOrRequirements) {
+    const gun=this.gunLoadout(index);
+    if(!gun)return false;
+    const requirements=Number.isInteger(areaOrRequirements)?this.requirements(areaOrRequirements):areaOrRequirements;
+    if(!objectLike(requirements))return false;
+    return Object.entries(GUN_FIELDS).every(([kind,field])=>gun[field]>=(requirements[kind]||0));
   }
 
   fuelCapacity() { return FUEL_CAPACITIES[this._state.upgrades.fuelTank] || FUEL_CAPACITIES[0]; }
@@ -453,8 +533,11 @@ export class CampaignStore {
     if(this._state.hull<35)return {ok:false,reason:'船体の損傷が大きく出撃できません。港で修理し、船体状態35%以上にしてください。'};
     const area=AREAS[areaId-1],requirements=this.requirements(areaId),fleet=area.waves.flat();
     const hasAircraft=Boolean(requirements.aa),hasSubmarine=fleet.some(enemy=>enemy.kind==='submarine');
-    const missing=Object.entries(requirements).filter(([kind,level])=>this._state.upgrades[kind]<level).map(([kind,level])=>UPGRADES[kind][level-1].name);
-    if(missing.length)return {ok:false,reason:`必須兵装：${missing.join('・')}を港で準備してください。${hasSubmarine?'潜水艦にはソナーと対潜兵装が必要です。':hasAircraft?'航空隊には対空兵装が必要です。':''}`,missing:requirements};
+    const missing=Object.entries(requirements).filter(([kind,level])=>!own(GUN_FIELDS,kind)&&this._state.upgrades[kind]<level).map(([kind,level])=>UPGRADES[kind][level-1].name);
+    const gunRequirements=Object.entries(requirements).filter(([kind])=>own(GUN_FIELDS,kind));
+    const readyGun=this._state.guns.some((_,index)=>this.gunMeetsRequirements(index,requirements));
+    if(!readyGun)missing.push(...gunRequirements.map(([kind,level])=>UPGRADES[kind][level-1].name));
+    if(missing.length)return {ok:false,reason:`必須兵装：${missing.join('・')}を港で準備してください。${!readyGun?'主砲関連は同じ1門が必要条件を満たせば出撃できます。全門の強化は不要です。':''}${hasSubmarine?'潜水艦にはソナーと対潜兵装が必要です。':hasAircraft?'航空隊には対空兵装が必要です。':''}`,missing:requirements};
     const stock=this._state.stock;
     if(stock.shell<30)return {ok:false,reason:'主砲弾を30単位以上補給してください。1発で5単位を消費します。'};
     if(stock.fuel<100)return {ok:false,reason:'燃料を100以上補給してください。通常航行は毎秒5を消費します。'};
