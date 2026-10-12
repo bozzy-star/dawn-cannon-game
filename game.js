@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { CannonAudio } from './audio.js?v=asahi-v2';
-import { AREAS, ENEMY_TYPES, UPGRADES, CampaignStore } from './campaign.js?v=asahi-v2';
-import { createWarship } from './enemies.js?v=asahi-v2';
+import { CannonAudio } from './audio.js?v=asahi-v4';
+import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v4';
+import { createWarship } from './enemies.js?v=asahi-v4';
+import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v4';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -51,7 +52,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 const envScene = new THREE.Scene();
 const envSky = new THREE.Mesh(new THREE.SphereGeometry(15,32,16),skyMat);
 envScene.add(envSky);
-const envRT = pmrem.fromScene(envScene, .06, .1, 100);
+const envRT = pmrem.fromScene(envScene, .03, .1, 100);
 scene.environment = envRT.texture;
 pmrem.dispose(); envSky.geometry.dispose();
 
@@ -114,29 +115,29 @@ for(const x of [-8.8,8.8]){
   cylinder(ship,.65,.65,.7,x,2.3,-11,darkSteel);
 }
 const guns=[];
+const batteryMount=new THREE.Group();batteryMount.position.set(0,2,-3);ship.add(batteryMount);
+cylinder(batteryMount,4.75,5.15,.7,0,.35,0,darkSteel,48);
+cylinder(batteryMount,4.55,4.75,.65,0,1,0,steel,48);
+for(let a=0;a<28;a++){const t=a*Math.PI*2/28;cylinder(batteryMount,.09,.09,.12,4.55*Math.sin(t),1.35,4.55*Math.cos(t),edgeSteel,8);}
+const turretYaw=new THREE.Group();turretYaw.position.y=1.25;batteryMount.add(turretYaw);
+const armorPlan=new THREE.Shape();armorPlan.moveTo(-4.5,3);armorPlan.lineTo(-4.5,-1.7);armorPlan.lineTo(-3.65,-3.1);armorPlan.lineTo(3.65,-3.1);armorPlan.lineTo(4.5,-1.7);armorPlan.lineTo(4.5,3);armorPlan.closePath();
+const armorHouse=new THREE.Mesh(new THREE.ExtrudeGeometry(armorPlan,{depth:2.55,bevelEnabled:true,bevelThickness:.22,bevelSize:.22,bevelSegments:1,steps:1}),steel);armorHouse.rotation.x=Math.PI/2;armorHouse.position.y=3.0;armorHouse.castShadow=true;armorHouse.receiveShadow=true;turretYaw.add(armorHouse);
+box(turretYaw,7.6,.13,5.2,0,3.23,.15,edgeSteel);
+for(const x of [-4.55,4.55]){box(turretYaw,.14,1.35,2.7,x,1.8,.7,darkSteel);box(turretYaw,.3,.7,1.0,x,2.8,1.7,darkSteel);}
+const turretElevation=new THREE.Group();turretElevation.position.set(0,1.95,-2.7);turretYaw.add(turretElevation);
+const MUZZLE_Z=-9.8;
 for(let i=0;i<3;i++){
-  const base=new THREE.Group();base.position.set((i-1)*5.0,2.0,-1.2);ship.add(base);
-  cylinder(base,1.9,2.15,.4,0,.2,0,darkSteel,40);
-  cylinder(base,1.7,1.9,.6,0,.65,0,steel,40);
-  for(let a=0;a<12;a++){const t=a*Math.PI/6;cylinder(base,.09,.09,.1,1.65*Math.sin(t),.98,1.65*Math.cos(t),edgeSteel,8);}
-  const swivel=new THREE.Group();swivel.position.y=.9;base.add(swivel);
-  box(swivel,2.35,1.5,2.1,0,.8,.35,darkSteel);
-  for(const x of [-1.28,1.28]){const trunnion=cylinder(swivel,.52,.52,.4,x,1.6,-.3,edgeSteel);trunnion.rotation.z=Math.PI/2;}
-  const pitch=new THREE.Group();pitch.position.set(0,1.55,-.28);swivel.add(pitch);
-  const barrel=new THREE.Group();pitch.add(barrel);
-  box(barrel,1.55,1.5,1.9,0,0,.3,steel);
-  const tube=cylinder(barrel,.61,.93,6.2,0,0,-3.35,steel,40);tube.rotation.x=-Math.PI/2;
-  for(const [z,r] of [[-1.3,.83],[-2.1,.79],[-4.0,.69],[-6.25,.63]]){ring(barrel,r,.065,0,0,z);}
-  ring(barrel,.61,.11,0,0,-6.45,edgeSteel);
-  const muzzle=mesh(new THREE.CircleGeometry(.51,32),black,barrel,0,0,-6.46);muzzle.rotation.y=Math.PI;
-  const bore=cylinder(barrel,.53,.53,.4,0,0,-6.24,darkSteel);bore.rotation.x=Math.PI/2;
-  for(const x of [-.8,.8]){const piston=cylinder(barrel,.12,.16,3.2,x,-.5,-.75,edgeSteel,12);piston.rotation.x=Math.PI/2;}
-  const wheel=ring(swivel,.42,.07,-1.62,.65,.75,bronze);wheel.rotation.y=Math.PI/2;
-  for(let a=0;a<4;a++){const spoke=cylinder(swivel,.03,.03,.8,-1.62,.65,.75,bronze,8);spoke.rotation.x=a*Math.PI/4;spoke.rotation.z=Math.PI/2;}
+  const barrel=new THREE.Group();barrel.position.x=(i-1)*2.15;turretElevation.add(barrel);
+  const breech=cylinder(barrel,.73,.82,1.3,0,0,-.3,darkSteel,24);breech.rotation.x=-Math.PI/2;
+  const tube=cylinder(barrel,.43,.67,9.0,0,0,-5.1,steel,32);tube.rotation.x=-Math.PI/2;
+  for(const [z,r] of [[-1.3,.66],[-2.1,.61],[-4.8,.54],[-8.9,.45]])ring(barrel,r,.05,0,0,z);
+  ring(barrel,.44,.09,0,0,-9.65,edgeSteel);
+  const muzzle=mesh(new THREE.CircleGeometry(.35,24),black,barrel,0,0,-9.69);muzzle.rotation.y=Math.PI;
+  for(const x of [-.6,.6]){const piston=cylinder(barrel,.1,.13,2.5,x,-.42,-1.1,edgeSteel,12);piston.rotation.x=Math.PI/2;}
   const plate=canvasTexture((ctx,s)=>{ctx.fillStyle='#2b3436';ctx.fillRect(0,0,s,s);ctx.fillStyle='#e4d6b7';ctx.textAlign='center';ctx.font=`bold ${s*.5}px Georgia`;ctx.fillText(`0${i+1}`,s/2,s*.7);},128);
-  box(swivel,1,.48,.035,0,.7,1.42,new THREE.MeshStandardMaterial({map:plate,roughness:.7}));
-  const flash=new THREE.PointLight(0xffbd64,0,26,2);barrel.add(flash);flash.position.set(0,0,-6.8);
-  guns.push({base,swivel,pitch,barrel,flash,cooldown:0,recoil:0,index:i});
+  box(turretYaw,1,.48,.035,(i-1)*2.15,1.9,3.25,new THREE.MeshStandardMaterial({map:plate,roughness:.7}));
+  const flash=new THREE.PointLight(0xffbd64,0,26,2);barrel.add(flash);flash.position.set(0,0,MUZZLE_Z);
+  guns.push({base:batteryMount,swivel:turretYaw,pitch:turretElevation,barrel,flash,cooldown:0,recoil:0,index:i});
 }
 
 const smokeTex=canvasTexture((ctx,s)=>{const g=ctx.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);g.addColorStop(0,'rgba(239,233,215,.9)');g.addColorStop(.25,'rgba(202,207,202,.65)');g.addColorStop(.6,'rgba(171,181,183,.28)');g.addColorStop(1,'rgba(150,170,178,0)');ctx.fillStyle=g;ctx.fillRect(0,0,s,s);},64);
@@ -164,9 +165,23 @@ let activeArea=clamp(campaign.state.unlockedArea,1,AREAS.length),chosenArea=acti
 let uiMode='title',harborTab='map',aimPointer=null,holdFire=false,salvoQueue=[],specialUsed=false,charge=null;
 let stats={shots:0,hits:0,kills:0,killScore:0,time:0,hull:100};
 let lastResult=null,enemyCounter=0,morseCooldown=0,energyFlash=0;
+let dragonUses=0,fuelTimer=0,selectedContact=null,bombDepth=50,auxiliary=null;
+let worldPart=AREAS[chosenArea-1].part||1;
 const tempV=new THREE.Vector3();
 const weapon=()=>WEAPONS[campaign.state.upgrades.weapon];
-const reloadTime=()=>2.7*Math.pow(.82,campaign.state.upgrades.reload);
+const reloadTime=()=>2.7*Math.pow(.82,campaign.state.upgrades.reload)*(threats.stats.sonarOn&&campaign.state.upgrades.sonar===1?2:1);
+const detectionRange=()=>[180,280,400,650][campaign.state.upgrades.radar||0];
+const threats=new NavalThreats({scene,audio,onDamage:damageHull,onAirKill:(score)=>{stats.airKills=(stats.airKills||0)+1;stats.airScore=(stats.airScore||0)+score;},onSubKill:(e)=>sinkEnemy(e,false,true),onEffect:(position,type,power=1)=>{if(type==='splash')splash(position,power);else if(type==='blast'){blast(position,power);puff(position,4,0x62656b,power);}else puff(position,2,0xcfe1e8,.3,true);},consume:(kind,n=1)=>campaign.consume(kind,n),getUpgrades:()=>campaign.state.upgrades,getAim:()=>{
+  const direction=camera.getWorldDirection(new THREE.Vector3());
+  const contact=threats.contacts.find(c=>c.detected&&c.id===selectedContact);
+  const surfaceDistance=direction.y<-.001?-camera.position.y/direction.y:150;
+  const point=camera.position.clone().addScaledVector(direction,clamp(surfaceDistance,15,350));point.y=-bombDepth/10;
+  return {origin:new THREE.Vector3(0,3,-12),direction,targetPoint:campaign.state.upgrades.asw>1&&contact?contact.position.clone():point};
+}});
+function syncAuxiliary(){
+  if(auxiliary){ship.remove(auxiliary);const geometry=new Set(),materials=new Set();auxiliary.traverse(n=>{if(n.geometry)geometry.add(n.geometry);if(n.material)for(const m of Array.isArray(n.material)?n.material:[n.material])materials.add(m);});for(const g of geometry)g.dispose();for(const m of materials)m.dispose();}
+  auxiliary=createAuxiliaryMounts(campaign.state.upgrades);ship.add(auxiliary);
+}
 function toast(message,duration=1.8){$('message').textContent=message;toastTime=duration;$('message').style.opacity='1';}
 function setScreen(mode){
   uiMode=mode;
@@ -175,22 +190,42 @@ function setScreen(mode){
   paused=mode==='pause';
 }
 function updateSaveSummary(){
-  $('saveSummary').textContent=`制圧 ${campaign.state.conquered.length} / ${AREAS.length}海域 · 保有 ${campaign.state.credits.toLocaleString()} C`;
+  $('saveSummary').textContent=`全5部 · 制圧 ${campaign.state.conquered.length} / ${AREAS.length}海域 · 保有 ${campaign.state.credits.toLocaleString()} C`;
+}
+const supplyNames={shell:'主砲弾',aa:'対空弾',asw:'対潜弾',dragon:'龍神弾',fuel:'燃料'};
+function renderWorldMap(){
+  const project=(lon,lat)=>[(((lon%360)+360)%360)/360*1000,(80-lat)/140*430];
+  const points=(list)=>list.map(p=>project(...p).map(v=>v.toFixed(1)).join(',')).join(' ');
+  const land=(WORLD.landmasses||[]).map(l=>`<polygon points="${points(l.points)}" fill="${l.nation==='akatsuwa'?'#927344':'#293f48'}" stroke="#6f8b9055" stroke-width="1.2"/>`).join('');
+  const route=AREAS.map(a=>project(a.lon,a.lat));
+  const path=route.map((p,i)=>`${i?'L':'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+  const captured=new Set(campaign.state.conquered);
+  const nodes=AREAS.map(a=>{const [x,y]=project(a.lon,a.lat),held=captured.has(a.id),selected=a.id===chosenArea;const tile=Array.from({length:6},(_,i)=>`${(x+13*Math.cos(i*Math.PI/3)).toFixed(1)},${(y+13*Math.sin(i*Math.PI/3)).toFixed(1)}`).join(' ');return `${held?`<polygon points="${tile}" fill="#48b89766" stroke="#75d1b0"/>`:''}<g data-map-area="${a.id}"><circle cx="${x}" cy="${y}" r="${selected?8:4.5}" fill="${selected?'#f2c47f':held?'#62c5a5':a.id>campaign.state.unlockedArea?'#6c707f':'#f0a974'}" stroke="#101c26" stroke-width="2"/><title>${a.id}. ${a.name}${held?'・制圧済み':''}</title></g>`;}).join('');
+  $('worldMap').innerHTML=`<svg viewBox="0 0 1000 430" role="img" aria-label="架空世界の作戦経路と制圧海域"><defs><linearGradient id="mapSea" x2="1" y2="1"><stop stop-color="#102638"/><stop offset="1" stop-color="#193d46"/></linearGradient></defs><rect width="1000" height="430" fill="url(#mapSea)"/>${Array.from({length:7},(_,i)=>`<path d="M0 ${i*70}H1000" stroke="#7195a015"/>`).join('')}${land}<path d="${path}" fill="none" stroke="#d5b67d66" stroke-width="1.8" stroke-dasharray="4 5"/>${nodes}<text x="455" y="255" fill="#8ba6b1" font-size="18" letter-spacing="7">蒼環洋</text><text x="790" y="210" fill="#8ba6b1" font-size="13">黎明大陸</text></svg>`;
+}
+function renderSupplies(){
+  const stock=campaign.state.stock;
+  $('supplyCards').innerHTML=Object.entries(CONSUMABLES).map(([kind,item])=>`<article class="shop-card supply-card"><small>SUPPLY / 保有 ${stock[kind]}</small><h3>${item.name}</h3><p>${item.description||`${supplyNames[kind]}を${item.amount}補給します。`}</p><button data-supply="${kind}" ${campaign.state.credits<item.price?'disabled':''}>+${item.amount} / ${item.price.toLocaleString()} C</button></article>`).join('');
+  const emergency=campaign.canEmergencyResupply();$('emergencySupply').disabled=!emergency.ok;$('emergencyStatus').textContent=emergency.reason;
 }
 function renderHarbor(){
   const state=campaign.state;
   $('credits').textContent=`${state.credits.toLocaleString()} C`;
-  $('mapTab').classList.toggle('active',harborTab==='map');$('shopTab').classList.toggle('active',harborTab==='shop');
-  $('mapView').classList.toggle('hidden',harborTab!=='map');$('shopView').classList.toggle('hidden',harborTab!=='shop');
-  $('mapList').innerHTML=AREAS.map(a=>`<button class="area-card ${a.id===chosenArea?'selected':''}" data-area="${a.id}" ${a.id>state.unlockedArea?'disabled':''}><span>0${a.id}</span><strong>${a.name}</strong><small>${state.conquered.includes(a.id)?'制圧済':a.id>state.unlockedArea?'未解放':'出撃可能'}</small></button>`).join('');
+  for(const [id,tab] of [['mapTab','map'],['shopTab','shop'],['supplyTab','supply']])$(id).classList.toggle('active',harborTab===tab);
+  for(const [id,tab] of [['mapView','map'],['shopView','shop'],['supplyView','supply']])$(id).classList.toggle('hidden',harborTab!==tab);
+  $('worldView').classList.toggle('hidden',harborTab!=='map');
+  $('partTabs').innerHTML=WORLD.parts.map(p=>`<button data-part="${p.id}" class="${worldPart===p.id?'active':''}">第${p.id}部</button>`).join('');
+  const part=WORLD.parts.find(p=>p.id===worldPart);$('partStory').textContent=`${part.title} — ${part.story}`;
+  $('mapList').innerHTML=AREAS.filter(a=>a.part===worldPart).map(a=>`<button class="area-card ${a.id===chosenArea?'selected':''} ${a.id>state.unlockedArea?'locked':''}" data-area="${a.id}"><span>${String(a.id).padStart(2,'0')}</span><strong>${a.name}</strong><small>${state.conquered.includes(a.id)?'制圧済':a.id>state.unlockedArea?'未解放':'出撃可能'}</small></button>`).join('');
   const area=AREAS[chosenArea-1];
-  $('areaNumber').textContent=`OPERATION 0${area.id} / 2 WAVES`;$('areaName').textContent=area.name;$('briefing').textContent=area.briefing;
+  $('areaNumber').textContent=`第${area.part}部 / OPERATION ${String(area.id).padStart(2,'0')} / ${area.waves.length} WAVES`;$('areaName').textContent=area.name;$('briefing').textContent=area.briefing;
   const kinds=[...new Set(area.waves.flat().map(e=>e.kind))];
-  $('enemyList').innerHTML=kinds.map(k=>`<span>${ENEMY_TYPES[k].name}</span>`).join('');
+  $('enemyList').innerHTML=kinds.map(k=>`<span>${ENEMY_TYPES[k].name}</span>`).join('')+(area.airRaid?.some(n=>n>0)?`<span>爆撃機 ${area.airRaid.reduce((a,b)=>a+b,0)}機</span>`:'');
   const record=state.records[String(area.id)];
   $('areaRecord').textContent=record?`最高 ${record.bestScore.toLocaleString()}点 · 命中 ${record.bestAccuracy}% · 評価 ${record.rank} · 制圧 ${record.victories}回`:'未制圧の海域。勝利すると次の海域が解放されます。';
-  $('loadout').textContent=`主砲：${weapon().name} / 装填 ${reloadTime().toFixed(2)}秒 / 艦体 ${100+state.upgrades.armor*30}${state.upgrades.special?' / 龍神砲 装備済':''}`;
-  const categories={weapon:'MAIN BATTERY / 主砲',reload:'LOADER / 装填',armor:'ARMOR / 艦体',special:'SPECIAL / 必殺技'};
+  $('loadout').textContent=`主砲：${weapon().name} / 装填 ${reloadTime().toFixed(2)}秒 / 艦体 ${100+state.upgrades.armor*30} / ${Object.entries(state.stock).map(([k,n])=>`${supplyNames[k]} ${n}`).join(' · ')}`;
+  const deploy=campaign.canDeploy(chosenArea);$('deploy').disabled=!deploy.ok;$('deploymentStatus').textContent=deploy.ok?'装備・補給確認完了。出撃できます。':deploy.reason;$('deploymentStatus').classList.toggle('warning',!deploy.ok);
+  const categories={weapon:'MAIN BATTERY / 主砲',reload:'LOADER / 装填',armor:'ARMOR / 艦体',special:'SPECIAL / 必殺技',aa:'AIR DEFENSE / 対空',radar:'FIRE CONTROL / レーダー',sonar:'DETECTION / ソナー',asw:'ANTI SUB / 対潜'};
   $('shopCards').innerHTML=Object.keys(UPGRADES).map(kind=>{
     const item=campaign.nextUpgrade(kind);
     if(!item)return `<article class="shop-card"><small>${categories[kind]}</small><h3>${kind==='weapon'?weapon().name:kind==='special'?'龍神砲':'最終強化'}</h3><p>この装備は最大まで強化済みです。</p><span class="maxed">装備済み</span></article>`;
@@ -198,18 +233,20 @@ function renderHarbor(){
     const label=locked?`第${item.unlockArea}海域で解放`:state.credits<item.price?`${item.price.toLocaleString()} C · 資金不足`:`${item.price.toLocaleString()} C で購入`;
     return `<article class="shop-card"><small>${categories[kind]} · Lv.${item.level}</small><h3>${item.name}</h3><p>${item.description}</p><button data-buy="${kind}" ${campaign.canBuy(kind)?'':'disabled'}>${label}</button></article>`;
   }).join('');
+  renderWorldMap();renderSupplies();
   updateSaveSummary();
 }
 function openHarbor(tab='map'){
   holdFire=false;aimPointer=null;keys.clear();salvoQueue=[];finished=true;charge=null;
-  audio.pause(false);cleanupBattle();harborTab=tab;setScreen('harbor');renderHarbor();$('shopMessage').textContent='';
+  campaign.save();
+  audio.pause(false);cleanupBattle();harborTab=tab;worldPart=AREAS[chosenArea-1].part;setScreen('harbor');renderHarbor();$('shopMessage').textContent='';
 }
-function makeEnemy(x,z,kind){
-  const model=createWarship(kind,kit);const spec=ENEMY_TYPES[kind];
+function makeEnemy(x,z,kind,depth){
+  const model=createWarship(kind,kit);const scale=AREAS[activeArea-1].enemyScale||1,original=ENEMY_TYPES[kind];const spec={...original,hp:original.hp*scale,damage:original.damage*Math.sqrt(scale),attackInterval:original.attackInterval/Math.sqrt(scale),score:Math.round(original.score*scale)};
   model.root.position.set(x,0,z);scene.add(model.root);
   const marker=document.createElement('div');marker.className='enemy-marker';marker.innerHTML=`<span>${spec.name}</span><div class="enemy-hp"><i></i></div>`;$('markers').append(marker);
-  const e={...model,id:++enemyCounter,kind,spec,marker,hp:spec.hp,maxHP:spec.hp,attack:spec.attackInterval+Math.random()*2,phase:Math.random()*10,sinking:0,dead:false,removed:false,smokeTimer:0};
-  enemies.push(e);return e;
+  const e={...model,id:++enemyCounter,kind,spec,marker,hp:spec.hp,maxHP:spec.hp,attack:spec.attackInterval+Math.random()*2,phase:Math.random()*10,sinking:0,dead:false,removed:false,smokeTimer:0,depth:depth??8,detected:kind!=='submarine'};
+  enemies.push(e);threats.registerShip(e);return e;
 }
 function removeEnemy(e){
   if(e.removed)return;scene.remove(e.root);e.marker.remove();
@@ -218,22 +255,25 @@ function removeEnemy(e){
 }
 function spawnWave(){
   wave++;waveWait=0;const area=AREAS[activeArea-1];
-  for(const position of area.waves[wave-1])makeEnemy(position.x,position.z,position.kind);
-  $('wave').textContent=`第${area.id}海域 · ${wave}/${area.waves.length}波`;
+  for(const position of area.waves[wave-1])makeEnemy(position.x,position.z,position.kind,position.depth);
+  if(area.airRaid?.[wave-1])threats.spawnAirRaid(area.airRaid[wave-1]);
+  $('wave').textContent=`第${area.part}部 · ${area.id}海域 · ${wave}/${area.waves.length}波`;
   toast(wave===1?`第${area.id}海域　${area.name}`:'敵の増援を捕捉',2.8);
   audio.morse('CQ');
 }
 function cleanupBattle(){
+  threats.reset();selectedContact=null;
   for(const e of enemies)removeEnemy(e);enemies.length=0;
   for(const s of shots)scene.remove(s.ball);shots.length=0;
   for(const e of effects)removeEffect(e);effects.length=0;
 }
 function beginArea(id=chosenArea){
   const parsed=Number(id);if(!Number.isInteger(parsed)||parsed<1||parsed>campaign.state.unlockedArea)return false;
+  const check=campaign.canDeploy(parsed);if(!check.ok){$('shopMessage').textContent=check.reason;toast(check.reason,3);return false;}
   audio.pause(false);cleanupBattle();activeArea=chosenArea=parsed;
   maxHP=100+campaign.state.upgrades.armor*30;hp=maxHP;kills=0;wave=0;waveWait=0;gameTime=0;
   yaw=0;pitch=-.018;shake=0;damage=0;energyFlash=0;finished=false;started=true;paused=false;holdFire=false;aimPointer=null;salvoQueue=[];specialUsed=false;charge=null;keys.clear();morseCooldown=0;
-  stats={shots:0,hits:0,kills:0,killScore:0,time:0,hull:100};lastResult=null;
+  stats={shots:0,hits:0,kills:0,killScore:0,time:0,hull:100,airKills:0,airScore:0};lastResult=null;dragonUses=0;fuelTimer=0;syncAuxiliary();
   for(const g of guns){g.cooldown=0;g.recoil=0;}
   selected=1;const area=AREAS[activeArea-1];scene.fog.color.setHex(area.fogTint);waterMat.uniforms.seaTint.value.setHex(area.seaTint);waterMat.uniforms.fogTint.value.copy(scene.fog.color);
   setScreen('battle');updateHullHUD();spawnWave();return true;
@@ -243,9 +283,8 @@ function updateCamera(){
   camera.position.set(0,7.6+ship.position.y,8.6);camera.rotation.order='YXZ';
   camera.rotation.set(pitch+(Math.random()-.5)*shake*.013,yaw+(Math.random()-.5)*shake*.008,Math.sin(elapsed*.49)*.002);
   const merge=charge?clamp(charge.time/1.25,0,1)*(charge.fired?clamp(1-(charge.time-1.4)/.9,0,1):1):0;
+  turretYaw.rotation.y=yaw;turretElevation.rotation.x=pitch+.012;
   for(const g of guns){
-    g.base.position.x=(g.index-1)*5*(1-merge*.87);g.swivel.rotation.y=yaw;g.pitch.rotation.x=pitch+.012;
-    g.pitch.rotation.z=Math.sin(elapsed*26+g.index)*g.recoil*.003;
     g.barrel.position.z=g.recoil*.82;g.flash.intensity=g.recoil>.75?35:0;
     for(const r of g.energy)r.visible=campaign.state.upgrades.weapon>=3||merge>0;
   }
@@ -253,8 +292,8 @@ function updateCamera(){
 }
 function weakPosition(e){return e.root.localToWorld(e.weakOffset.clone());}
 function findTarget(){
-  let best=null,bestDist=.16;
-  for(const e of enemies){if(e.dead)continue;const p=weakPosition(e).project(camera);if(p.z<-1||p.z>1)continue;const d=Math.hypot(p.x,p.y);if(d<bestDist){best=e;bestDist=d;}}
+  let best=null,bestDist=campaign.state.upgrades.radar>=3?.22:.16;
+  for(const e of enemies){if(e.dead||e.kind==='submarine'||camera.position.distanceTo(e.root.position)>detectionRange())continue;const p=weakPosition(e).project(camera);if(p.z<-1||p.z>1)continue;const d=Math.hypot(p.x,p.y);if(d<bestDist){best=e;bestDist=d;}}
   return best;
 }
 function removeEffect(e){
@@ -287,14 +326,15 @@ function beamBetween(from,to,color=0x74ddff,radius=.17,life=.24){
 function fire(index=selected){
   if(uiMode!=='battle'||finished||charge)return false;
   const g=guns[index];if(!g||g.cooldown>0)return false;
+  if(!campaign.consume('shell')){toast('主砲弾切れ。補給のため撤退します。',2);if(!shots.some(s=>!s.enemy))endGame(false,'主砲弾切れ・撤退');return false;}
   const w=weapon();g.cooldown=reloadTime();g.recoil=1;shake=Math.min(2.1,shake+.8);stats.shots++;
-  scene.updateMatrixWorld(true);const origin=g.barrel.localToWorld(new THREE.Vector3(0,0,-6.6));const target=findTarget();
+  scene.updateMatrixWorld(true);const origin=g.barrel.localToWorld(new THREE.Vector3(0,0,MUZZLE_Z));const target=findTarget();
   let dest;
-  if(target)dest=weakPosition(target);else{camera.getWorldDirection(tempV);dest=camera.position.clone().addScaledVector(tempV,w.beam?320:180);}
+  if(target){dest=weakPosition(target);if(campaign.state.upgrades.radar>=3)dest.z+=target.spec.speed*origin.distanceTo(dest)/w.speed;}else{camera.getWorldDirection(tempV);dest=camera.position.clone().addScaledVector(tempV,w.beam?320:180);}
   blast(origin,w.beam?1.5:1.15);puff(origin,7,0xc5c6bb,.55);
   if(w.beam){
     const direction=dest.clone().sub(origin).normalize();const far=origin.clone().addScaledVector(direction,520);
-    const impacts=enemies.filter(e=>!e.dead).map(e=>({e,point:shipIntersection(origin,far,e)})).filter(x=>x.point).sort((a,b)=>a.point.distanceTo(origin)-b.point.distanceTo(origin));
+    const impacts=enemies.filter(e=>!e.dead&&e.kind!=='submarine').map(e=>({e,point:shipIntersection(origin,far,e)})).filter(x=>x.point).sort((a,b)=>a.point.distanceTo(origin)-b.point.distanceTo(origin));
     const hit=impacts[0];const end=hit?hit.point:far;
     beamBetween(origin,end,w.beam,campaign.state.upgrades.weapon===4?.38:.1,.32);beamBetween(origin,end,0xe4ffff,.07,.2);audio.beam((index-1)*.55);energyFlash=.18;
     if(hit){stats.hits++;hitEnemy(hit.e,target===hit.e?weakPosition(hit.e):hit.point,w.damage);}
@@ -303,7 +343,7 @@ function fire(index=selected){
   }
   const velocity=dest.clone().sub(origin);const t=velocity.length()/w.speed;velocity.divideScalar(t);velocity.y+=.5*5*t;
   const ball=new THREE.Mesh(shellGeo,shellMaterials[campaign.state.upgrades.weapon]);ball.position.copy(origin);if(w.splash)ball.scale.setScalar(1.5);scene.add(ball);
-  shots.push({ball,velocity,life:12,enemy:false,prev:origin.clone(),damage:w.damage,splash:w.splash||0,target:target?.id});audio.fire((index-1)*.55);return true;
+  shots.push({ball,velocity,life:12,enemy:false,prev:origin.clone(),damage:w.damage,splash:w.splash||0,target:target?.id,proximity:campaign.state.upgrades.radar>=3?3.5:0});audio.fire((index-1)*.55);return true;
 }
 function salvo(){
   if(uiMode!=='battle'||finished||charge)return false;
@@ -317,9 +357,9 @@ function enemyFire(e){
   const ball=new THREE.Mesh(shellGeo,shellMaterials[0]);ball.position.copy(origin);scene.add(ball);shots.push({ball,velocity,life:7,enemy:true,damage:e.spec.damage,prev:origin.clone()});blast(origin,.6);
 }
 function sinkEnemy(e,critical=false,notify=true){
-  if(e.dead)return false;e.dead=true;e.sinking=0;kills++;stats.kills=kills;stats.killScore+=e.spec.score;e.marker.remove();
-  const weak=weakPosition(e);puff(weak,12,0x565b58,1.8);blast(weak,2.1);audio.sinking(clamp(e.root.position.x/80,-1,1));
-  if(notify){toast(critical?'機関部直撃 · 敵艦沈没':'敵艦沈没',1.6);audio.announce('敵艦、沈没。');if(morseCooldown<=0){audio.morse('SUNK');morseCooldown=2.7;}}
+  if(e.dead)return false;e.dead=true;e.root.visible=true;e.sinking=0;kills++;stats.kills=kills;stats.killScore+=e.spec.score;e.marker.remove();
+  const weak=weakPosition(e);if(e.kind==='submarine')weak.y=.5;puff(weak,12,0x565b58,1.8);blast(weak,2.1);audio.sinking(clamp(e.root.position.x/80,-1,1),camera.position.distanceTo(e.root.position)*10);
+  if(notify){toast(critical?'機関部直撃 · 敵艦撃沈！':'敵艦撃沈！',1.6);audio.sunk();if(morseCooldown<=0){audio.morse('SUNK');morseCooldown=2.7;}}
   return true;
 }
 function hitEnemy(e,point,amount=weapon().damage){
@@ -342,12 +382,14 @@ function shipIntersection(from,to,e){
 }
 function cleanShot(i){scene.remove(shots[i].ball);shots.splice(i,1);}
 function fireDragon(){
-  if(uiMode!=='battle'||finished||charge||!campaign.state.upgrades.special||specialUsed||!enemies.some(e=>!e.dead))return false;
-  specialUsed=true;holdFire=false;salvoQueue=[];charge={time:0,fired:false};yaw=0;pitch=-.018;audio.special();audio.announce('三門合体。龍神砲、発射準備。');toast('3門合体　龍神砲 充填',2);return true;
+  const limit=campaign.state.upgrades.special>=2?2:1;
+  if(uiMode!=='battle'||finished||charge||!campaign.state.upgrades.special||dragonUses>=limit||(!enemies.some(e=>!e.dead&&e.kind!=='submarine')&&!threats.stats.airborne))return false;
+  if(!campaign.consume('dragon')){toast('龍神弾がありません。港で補給してください。');return false;}
+  dragonUses++;specialUsed=dragonUses>=limit;holdFire=false;salvoQueue=[];charge={time:0,fired:false};yaw=0;pitch=-.018;audio.special();audio.announce('三連装、連結。龍神砲、発射準備。');toast(`龍神砲 充填 · ${dragonUses}/${limit}回`,2);return true;
 }
 function dragonBlast(){
   const start=new THREE.Vector3(0,4.8,-8);const target=start.clone().add(new THREE.Vector3(0,2,-450));
-  for(const g of guns){const from=g.barrel.localToWorld(new THREE.Vector3(0,0,-6.6));beamBetween(from,start,0x81f6e6,.3,.8);g.recoil=1;g.cooldown=reloadTime();}
+  for(const g of guns){const from=g.barrel.localToWorld(new THREE.Vector3(0,0,MUZZLE_Z));beamBetween(from,start,0x81f6e6,.3,.8);g.recoil=1;g.cooldown=reloadTime();}
   beamBetween(start,target,0x55dfeb,3.6,1.3);beamBetween(start,target,0xd7ffff,1.4,.9);
   for(let side=0;side<2;side++){
     const points=[];for(let j=0;j<=32;j++){const z=-8-j*11;points.push(new THREE.Vector3(Math.sin(j*.5+side*Math.PI)*5,5.4+Math.cos(j*.5+side*Math.PI)*2,z));}
@@ -355,11 +397,14 @@ function dragonBlast(){
   }
   const crest=new THREE.Mesh(new THREE.ConeGeometry(4.5,16,7),new THREE.MeshBasicMaterial({color:0x7bffff,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false}));crest.rotation.x=-Math.PI/2;crest.position.set(0,6,-33);effect(crest,1.1,new THREE.Vector3(0,0,-115),0,0,true);
   energyFlash=.9;shake=2.2;
-  let sunk=0;for(const e of enemies)if(!e.dead){sinkEnemy(e,false,false);splash(e.root.position,1.6);sunk++;}
-  toast(`龍神砲　敵艦${sunk}隻を撃沈`,2.8);audio.announce('敵艦隊、全艦沈没。');audio.morse('SUNK');morseCooldown=2.7;
+  let sunk=0;for(const e of enemies)if(!e.dead&&e.kind!=='submarine'){sinkEnemy(e,false,false);splash(e.root.position,1.6);sunk++;}
+  const planes=threats.dragonSweep();
+  toast(`龍神砲　敵艦${sunk}隻・航空機${planes}機撃破`,2.8);if(sunk)audio.sunk();audio.morse('SUNK');morseCooldown=2.7;
 }
 function tick(dt){
   gameTime+=dt;morseCooldown=Math.max(0,morseCooldown-dt);
+  fuelTimer+=dt;while(fuelTimer>=1){fuelTimer--;campaign.consume('fuel');}
+  if(campaign.state.stock.fuel<=0){endGame(false,'燃料切れ・撤退');return;}
   for(const g of guns){g.cooldown=Math.max(0,g.cooldown-dt);g.recoil=Math.max(0,g.recoil-dt*3.8);}
   if(charge){charge.time+=dt;if(!charge.fired&&charge.time>=1.4){charge.fired=true;scene.updateMatrixWorld(true);dragonBlast();}if(charge.time>2.5)charge=null;return;}
   for(const q of salvoQueue)q.delay-=dt;
@@ -371,20 +416,22 @@ function tick(dt){
   yaw=clamp(yaw,-.78,.78);pitch=clamp(pitch,-.2,.13);
   for(const e of enemies){
     if(e.dead){e.sinking+=dt;e.root.position.y=-e.sinking*.8;e.root.rotation.z=e.sinking*.075;e.root.rotation.x=e.sinking*.025;if(e.sinking>7)removeEnemy(e);continue;}
+    if(e.kind==='submarine')continue;
     e.phase+=dt;e.root.position.y=Math.sin(e.phase*1.4)*.24;e.root.rotation.z=Math.sin(e.phase)*.017;
     e.root.position.z+=dt*e.spec.speed;e.root.position.x+=Math.sin(e.phase*.28)*dt*(e.kind==='destroyer'?.8:.25);
-    e.attack-=dt;if(e.attack<=0){enemyFire(e);e.attack=e.spec.attackInterval*.8+Math.random()*3;}
+    e.attack-=dt;if(e.attack<=0){if(!e.spec.launchCount)enemyFire(e);e.attack=e.spec.attackInterval*.8+Math.random()*3;}
     e.smokeTimer-=dt;if(e.smokeTimer<=0){for(const offset of e.smokeOffsets)puff(e.root.localToWorld(offset.clone()),1,0x6e7472,.5);e.smokeTimer=1.1;}
     if(e.root.position.z>-38){damageHull(e.spec.damage*1.5);e.root.position.z=-72;e.attack=2.8;toast('敵艦接近！',1);}
     if(finished)return;
   }
+  threats.tick(dt,enemies);if(finished)return;
   for(let i=shots.length-1;i>=0;i--){
     const s=shots[i];s.prev.copy(s.ball.position);s.velocity.y-=5*dt;s.ball.position.addScaledVector(s.velocity,dt);s.life-=dt;
     let hit=false;
     if(!s.enemy){
-      for(const e of enemies){if(e.dead)continue;const point=shipIntersection(s.prev,s.ball.position,e);if(!point)continue;
+      for(const e of enemies){if(e.dead||e.kind==='submarine')continue;let point=shipIntersection(s.prev,s.ball.position,e);if(!point&&s.proximity){const weak=weakPosition(e);if(weak.distanceTo(s.ball.position)<s.proximity)point=weak;}if(!point)continue;
         stats.hits++;hitEnemy(e,s.target===e.id?weakPosition(e):point,s.damage);hit=true;
-        if(s.splash){for(const other of enemies){if(other===e||other.dead)continue;if(other.root.position.distanceTo(e.root.position)<s.splash)hitEnemy(other,other.root.position.clone().add(new THREE.Vector3(0,3,0)),s.damage*.45);}}
+        if(s.splash){for(const other of enemies){if(other===e||other.dead||other.kind==='submarine')continue;if(other.root.position.distanceTo(e.root.position)<s.splash)hitEnemy(other,other.root.position.clone().add(new THREE.Vector3(0,3,0)),s.damage*.45);}}
         break;
       }
     } else if(s.ball.position.z>-13&&Math.abs(s.ball.position.x)<13&&s.ball.position.y<8){damageHull(s.damage);blast(s.ball.position,.8);puff(s.ball.position,5,0x7b7c72,.8);hit=true;}
@@ -392,10 +439,15 @@ function tick(dt){
     if(hit)cleanShot(i);if(finished)return;
   }
   const area=AREAS[activeArea-1];
-  if(enemies.length&&enemies.every(e=>e.dead)){
+  if(enemies.length&&enemies.every(e=>e.dead)&&threats.stats.airborne===0){
     waveWait+=dt;
-    if(waveWait>3.5){if(wave>=area.waves.length)endGame(true);else{hp=Math.min(maxHP,hp+maxHP*.12);updateHullHUD();spawnWave();}}
+    if(waveWait>3.5){if(wave>=area.waves.length){if(dragonUses>=(area.requiredDragonUses||0))endGame(true);else endGame(false,'作戦条件未達・撤退');}else{hp=Math.min(maxHP,hp+maxHP*.12);updateHullHUD();spawnWave();}}
   }
+  if(finished)return;
+  const alive=enemies.filter(e=>!e.dead),pending=shots.some(s=>!s.enemy)||!!charge;
+  if(campaign.state.stock.shell<=0&&!pending&&alive.some(e=>e.kind!=='submarine'))endGame(false,'主砲弾切れ・撤退');
+  else if(campaign.state.stock.aa<=0&&threats.stats.airborne>0)endGame(false,'対空弾切れ・撤退');
+  else if(campaign.state.stock.asw<=0&&alive.some(e=>e.kind==='submarine')&&!threats.stats.aswActive)endGame(false,'対潜弾切れ・撤退');
 }
 function updateEffects(dt){
   for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life-=dt;e.vel.y-=e.gravity*dt;e.object.position.addScaledVector(e.vel,dt);e.object.scale.copy(e.startScale).multiplyScalar(1+(e.max-e.life)*e.growth);
@@ -406,17 +458,48 @@ function updateEffects(dt){
 function updateHUD(){
   const target=findTarget();$('reticle').classList.toggle('locked',!!target);$('range').textContent=target?`${target.spec.name} ${Math.round(camera.position.distanceTo(target.root.position)*10)} m`:'照準を敵艦へ';$('weaponName').textContent=weapon().name;
   $('kills').textContent=`撃沈 ${kills} · 命中 ${stats.shots?Math.round(stats.hits/stats.shots*100):0}%`;
-  for(const e of enemies){if(e.dead)continue;const p=e.root.position.clone();p.y=e.markerHeight+1;p.project(camera);const visible=p.z>-1&&p.z<1&&Math.abs(p.x)<1.2&&Math.abs(p.y)<1.2;e.marker.style.display=visible?'block':'none';if(visible){e.marker.style.left=`${(p.x*.5+.5)*innerWidth}px`;e.marker.style.top=`${(-p.y*.5+.5)*innerHeight}px`;}}
+  for(const e of enemies){if(e.dead)continue;const p=e.root.position.clone();p.y=e.markerHeight+1;p.project(camera);const detected=e.kind==='submarine'?e.detected:camera.position.distanceTo(e.root.position)<=detectionRange();const visible=detected&&p.z>-1&&p.z<1&&Math.abs(p.x)<1.2&&Math.abs(p.y)<1.2;e.marker.style.display=visible?'block':'none';if(visible){e.marker.style.left=`${(p.x*.5+.5)*innerWidth}px`;e.marker.style.top=`${(-p.y*.5+.5)*innerHeight}px`;e.marker.querySelector('i').style.width=`${clamp(e.hp/e.maxHP,0,1)*100}%`;}}
   const buttons=document.querySelectorAll('.gun');guns.forEach((g,i)=>{const b=buttons[i];b.classList.toggle('selected',i===selected);b.classList.toggle('loading',g.cooldown>0);b.querySelector('span').textContent=g.cooldown>0?`${g.cooldown.toFixed(1)}秒`:'装填完了';b.querySelector('i').style.width=`${clamp(1-g.cooldown/reloadTime(),0,1)*100}%`;});
   $('fire').classList.toggle('reloading',guns[selected].cooldown>0);$('fire').querySelector('b').textContent=charge?'充填':guns[selected].cooldown>0?'装填':'発射';
-  const ready=!!campaign.state.upgrades.special&&!specialUsed&&uiMode==='battle'&&!finished&&!charge;
-  $('special').disabled=!ready;$('special').classList.toggle('ready',ready);$('special').querySelector('small').textContent=!campaign.state.upgrades.special?'未装備':charge?'充填中':specialUsed?'使用済み':'残り1回';
+  const limit=campaign.state.upgrades.special>=2?2:1,remaining=Math.max(0,limit-dragonUses);
+  const ready=!!campaign.state.upgrades.special&&remaining>0&&campaign.state.stock.dragon>0&&uiMode==='battle'&&!finished&&!charge;
+  $('special').disabled=!ready;$('special').classList.toggle('ready',ready);$('special').querySelector('small').textContent=!campaign.state.upgrades.special?'未装備':charge?'充填中':!remaining?'使用済み':!campaign.state.stock.dragon?'弾なし':`残り${remaining}回`;
+  updateTacticalHUD();
 }
-function endGame(won){
+function updateTacticalHUD(){
+  const state=campaign.state,u=state.upgrades,t=threats.stats,contacts=threats.contacts.filter(c=>c.detected);
+  $('supplyHUD').textContent=`主砲 ${state.stock.shell} · 対空 ${state.stock.aa} · 対潜 ${state.stock.asw} · 燃料 ${state.stock.fuel}`;
+  $('threatStatus').textContent=`航空 ${t.airborne}機 · 撃墜 ${stats.airKills||0}機 · 潜水接触 ${contacts.length}`;
+  $('tactical').classList.toggle('hidden',(!u.sonar&&!u.asw)||(uiMode!=='battle'&&uiMode!=='pause'));
+  $('sonar').disabled=!u.sonar;$('sonar').textContent=!u.sonar?'ソナー未装備':`${['','パッシブ','アクティブ','ソノブイ'][u.sonar]} ${t.sonarOn?'ON':'OFF'}`;
+  $('sonar').classList.toggle('active',t.sonarOn);
+  const aswNames=['対潜未装備','爆雷','直進魚雷','誘導魚雷','アスロック'];$('asw').disabled=!u.asw||t.aswCooldown>0||!state.stock.asw;$('asw').textContent=`${aswNames[u.asw]}${t.aswCooldown>0?` ${Math.ceil(t.aswCooldown)}秒`:''}`;
+  $('depthControl').classList.toggle('hidden',u.asw!==1);$('contact').disabled=!contacts.length;
+  const selected=contacts.find(c=>c.id===selectedContact);$('contact').textContent=selected?`接触 ${Math.round(selected.position.length()*10)}m / 深度${Math.round(selected.depth)}m`:'潜水接触を選ぶ';
+  $('radarScope').classList.toggle('hidden',!u.radar&&!u.sonar);
+  const range=detectionRange(),dots=[];
+  if(u.radar)for(const e of enemies)if(!e.dead&&e.kind!=='submarine'&&e.root.position.length()<range)dots.push({position:e.root.position,color:'#efb076'});
+  for(const c of contacts)dots.push({position:c.position,color:c.id===selectedContact?'#ffdf7e':'#6df2c6'});
+  $('radarScope').innerHTML=`<svg viewBox="0 0 100 100" aria-label="索敵表示"><circle cx="50" cy="50" r="46"/><circle cx="50" cy="50" r="23"/><path d="M4 50H96M50 4V96"/>${dots.map(d=>`<circle class="scope-dot" cx="${clamp(50+d.position.x/range*44,5,95)}" cy="${clamp(50+d.position.z/range*44,5,95)}" r="2.5" style="fill:${d.color}"/>`).join('')}<path class="self" d="M50 46l-3 7h6z"/></svg><span>${u.radar>=3?'射撃管制 / VT':t.sonarOn?'SONAR':'RADAR'} ${range*10}m</span>`;
+}
+function selectSubContact(){
+  const contacts=threats.contacts.filter(c=>c.detected);if(!contacts.length){toast('潜水接触なし。ソナーで索敵してください。');return;}
+  const index=contacts.findIndex(c=>c.id===selectedContact),c=contacts[(index+1)%contacts.length];selectedContact=c.id;
+  const dx=c.position.x-camera.position.x,dz=c.position.z-camera.position.z;yaw=clamp(Math.atan2(-dx,-dz),-.78,.78);pitch=clamp(Math.atan2(-camera.position.y,Math.hypot(dx,dz)),-.2,.13);
+  toast(`潜水接触 · 深度 ${Math.round(c.depth)}m`);
+}
+function toggleSonar(){
+  if(uiMode!=='battle'||!campaign.state.upgrades.sonar)return;
+  const before=threats.stats.sonarOn;threats.toggleSonar();const after=threats.stats.sonarOn;
+  if(campaign.state.upgrades.sonar===1&&before!==after)for(const g of guns)g.cooldown*=after?2:.5;
+  toast(after&&campaign.state.upgrades.sonar===1?'パッシブ索敵開始 · 主砲装填2倍':after?'索敵開始':'索敵停止');
+}
+function fireAntiSub(){if(uiMode!=='battle'||finished)return;audio.unlock();if(!selectedContact&&campaign.state.upgrades.asw>1)selectedContact=threats.contacts.find(c=>c.detected)?.id??null;const result=threats.fireASW();toast(result.reason||'対潜兵器、発射。');}
+function endGame(won,reason='艦体大破'){
   if(finished)return;finished=true;holdFire=false;aimPointer=null;keys.clear();salvoQueue=[];charge=null;
   stats.time=gameTime;stats.hull=hp/maxHP*100;lastResult=campaign.settle(activeArea,stats,won);const area=AREAS[activeArea-1];
-  setScreen('result');$('endEyebrow').textContent=won?'AREA CONQUERED':'MISSION FAILED';$('endTitle').textContent=won?(activeArea===AREAS.length?'全海域制圧':'海域制圧'):'艦体大破';$('endArea').textContent=`第${activeArea}海域 · ${area.name}`;
-  const values=[['撃沈数',`${kills}`, '隻'],['得点',lastResult.score.toLocaleString(),'点'],['命中率',`${lastResult.accuracy}`,'%'],['発射 / 命中',`${stats.shots} / ${stats.hits}`,'砲撃'],['艦体耐久',`${Math.round(hp/maxHP*100)}`,'%'],['総合評価',lastResult.rank,`${Math.floor(gameTime)}秒`]];
+  setScreen('result');$('endEyebrow').textContent=won?'AREA CONQUERED':reason.includes('撤退')?'WITHDRAWAL':'MISSION FAILED';$('endTitle').textContent=won?(activeArea===AREAS.length?'全海域制圧':'海域制圧'):reason;$('endArea').textContent=`第${area.part}部 · 第${activeArea}海域 · ${area.name}`;
+  const values=[['撃沈数',`${kills}`, '隻'],['得点',lastResult.score.toLocaleString(),'点'],['命中率',`${lastResult.accuracy}`,'%'],['発射 / 命中',`${stats.shots} / ${stats.hits}`,'砲撃'],['艦体耐久',`${Math.round(hp/maxHP*100)}`,'%'],['総合評価',lastResult.rank,`${Math.floor(gameTime)}秒`],['撃墜数',`${stats.airKills||0}`,'機'],['龍神砲',`${dragonUses}`,'回'],['残存燃料',`${campaign.state.stock.fuel}`,'単位']];
   $('endScore').innerHTML=values.map(([label,value,unit])=>`<div class="stat-value"><small>${label}</small><strong>${value}</strong><em>${unit}</em></div>`).join('');$('reward').textContent=`+${lastResult.reward.toLocaleString()} C`;
   $('nextArea').classList.toggle('hidden',!won||activeArea>=AREAS.length);$('toHarbor').textContent=won?'港で強化':'港で装備を見直す';
   if(won){audio.morse('VICTORY');audio.announce(activeArea===AREAS.length?'全海域、制圧完了。':'海域、制圧完了。');}
@@ -429,14 +512,19 @@ function setPause(value){
 async function start(){const promise=audio.unlock();started=true;chosenArea=clamp(campaign.state.unlockedArea,1,AREAS.length);openHarbor('map');await promise;}
 $('startButton').addEventListener('click',start);
 $('deploy').addEventListener('click',()=>beginArea(chosenArea));
-$('mapTab').addEventListener('click',()=>{harborTab='map';renderHarbor();});$('shopTab').addEventListener('click',()=>{harborTab='shop';renderHarbor();});$('backToMap').addEventListener('click',()=>{harborTab='map';renderHarbor();});
+$('mapTab').addEventListener('click',()=>{harborTab='map';renderHarbor();});$('shopTab').addEventListener('click',()=>{harborTab='shop';renderHarbor();});$('supplyTab').addEventListener('click',()=>{harborTab='supply';renderHarbor();});$('backToMap').addEventListener('click',()=>{harborTab='map';renderHarbor();});
+$('partTabs').addEventListener('click',e=>{const button=e.target.closest('button[data-part]');if(!button)return;worldPart=Number(button.dataset.part);chosenArea=AREAS.find(a=>a.part===worldPart).id;renderHarbor();});
+$('worldMap').addEventListener('click',e=>{const node=e.target.closest('[data-map-area]');if(!node)return;chosenArea=Number(node.dataset.mapArea);worldPart=AREAS[chosenArea-1].part;renderHarbor();});
 $('mapList').addEventListener('click',e=>{const button=e.target.closest('button[data-area]');if(!button||button.disabled)return;chosenArea=Number(button.dataset.area);renderHarbor();});
 $('shopCards').addEventListener('click',e=>{const button=e.target.closest('button[data-buy]');if(!button||button.disabled)return;const result=campaign.buy(button.dataset.buy);renderHarbor();$('shopMessage').textContent=result.reason;audio.unlock();if(result.ok)audio.morse('OK');});
+$('supplyCards').addEventListener('click',e=>{const button=e.target.closest('button[data-supply]');if(!button||button.disabled)return;const result=campaign.buySupply(button.dataset.supply);renderHarbor();$('shopMessage').textContent=result.reason;audio.unlock();if(result.ok)audio.morse('OK');});
+$('emergencySupply').addEventListener('click',()=>{const result=campaign.emergencyResupply();renderHarbor();$('shopMessage').textContent=result.reason;audio.unlock();if(result.ok)audio.morse('OK');});
+$('sonar').addEventListener('click',()=>{audio.unlock();toggleSonar();});$('asw').addEventListener('click',fireAntiSub);$('contact').addEventListener('click',selectSubContact);$('depth').addEventListener('change',()=>{bombDepth=clamp(Number($('depth').value)||50,20,150);});
 $('toHarbor').addEventListener('click',()=>openHarbor('shop'));$('nextArea').addEventListener('click',()=>{chosenArea=Math.min(activeArea+1,AREAS.length);openHarbor('map');});
 $('restart').addEventListener('click',()=>beginArea(activeArea));$('restartPause').addEventListener('click',()=>beginArea(activeArea));$('toHarborPause').addEventListener('click',()=>{chosenArea=activeArea;openHarbor('map');});
 $('pause').addEventListener('click',()=>setPause(true));$('resume').addEventListener('click',()=>setPause(false));
 $('resetProgress').addEventListener('click',()=>{$('resetConfirm').classList.remove('hidden');});$('cancelReset').addEventListener('click',()=>{$('resetConfirm').classList.add('hidden');});
-$('confirmReset').addEventListener('click',()=>{campaign.reset();chosenArea=1;$('resetConfirm').classList.add('hidden');renderHarbor();$('shopMessage').textContent='新しい作戦を開始しました。';});
+$('confirmReset').addEventListener('click',()=>{campaign.reset();chosenArea=1;worldPart=1;$('resetConfirm').classList.add('hidden');renderHarbor();$('shopMessage').textContent='新しい作戦を開始しました。';});
 $('mute').addEventListener('click',()=>{if(uiMode!=='pause')audio.unlock();audio.setMuted(!audio.muted);$('mute').textContent=audio.muted?'音 OFF':'音 ON';});
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await $('game').requestFullscreen();if(screen.orientation?.lock)await screen.orientation.lock('landscape');}catch{}});
 document.querySelectorAll('.gun').forEach(b=>b.addEventListener('click',()=>{if(uiMode!=='battle')return;selected=Number(b.dataset.gun);audio.unlock();}));
@@ -450,13 +538,15 @@ window.addEventListener('keydown',e=>{
   if(e.key==='Escape'){if(uiMode==='battle')setPause(true);else if(uiMode==='pause')setPause(false);return;}
   if(uiMode!=='battle')return;if([' ','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))e.preventDefault();if(e.repeat)return;keys.add(e.key);
   if(e.key===' '){audio.unlock();holdFire=true;fire(selected);}if(e.key.toLowerCase()==='f')salvo();if(e.key.toLowerCase()==='g')fireDragon();if(['1','2','3'].includes(e.key))selected=Number(e.key)-1;
+  if(e.key.toLowerCase()==='v')toggleSonar();if(e.key.toLowerCase()==='h')fireAntiSub();if(e.key.toLowerCase()==='r')selectSubContact();
 });
 window.addEventListener('keyup',e=>{keys.delete(e.key);if(e.key===' ')holdFire=false;});
 window.addEventListener('blur',()=>{holdFire=false;aimPointer=null;keys.clear();if(uiMode==='battle')setPause(true);});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&uiMode==='battle')setPause(true);});
+window.addEventListener('pagehide',()=>{campaign.save();audio.pause(true);});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.fov=w<h?80:62;camera.updateProjectionMatrix();}
-window.addEventListener('resize',resize);resize();updateCamera();updateSaveSummary();
+window.addEventListener('resize',resize);resize();updateCamera();updateSaveSummary();syncAuxiliary();
 $('loading').classList.add('hidden');
 let frames=0,sample=0,adapted=false;
 function animate(){

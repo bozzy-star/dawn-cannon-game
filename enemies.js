@@ -1,16 +1,17 @@
-// Four silhouettes share the weathered steel materials supplied by the scene.
+// Surface ships and submarines share the scene's weathered steel materials.
 // Local +Z is the bow, facing the player's ship. Sizes are in scene metres.
 export function createWarship(kind, kit) {
   const { THREE, steel, darkSteel, edgeSteel, deckMat, wood, black, bronze,
     box, cylinder, ring, mesh } = kit;
-  const key = ({ destroyer: 'destroyer', cruiser: 'cruiser', battleship: 'battleship', carrier: 'carrier' })[kind] || 'destroyer';
+  const key = ({ destroyer: 'destroyer', cruiser: 'cruiser', battleship: 'battleship', carrier: 'carrier', carrier3: 'carrier', carrier5: 'carrier', carrier10: 'carrier', submarine: 'submarine' })[kind] || 'destroyer';
   const sizes = {
     destroyer: { width: 2.7, length: 19, deck: 1.75, hull: 2.05, radius: 2.65 },
     cruiser: { width: 8, length: 25, deck: 2.25, hull: 2.55, radius: 4.7 },
     battleship: { width: 11, length: 33, deck: 2.8, hull: 3.15, radius: 6.3 },
     carrier: { width: 12, length: 35, deck: 3.5, hull: 3.9, radius: 6.6 },
+    submarine: { width: 3.6, length: 23, deck: .7, hull: 2.3, radius: 2.1 },
   };
-  const s = sizes[key];
+  const s = { ...sizes[key] };
   const root = new THREE.Group();
   root.name = key;
   const muzzleOffsets = [], smokeOffsets = [], ownedMaterials = [], ownedTextures = [];
@@ -20,6 +21,29 @@ export function createWarship(kind, kit) {
   });
   ownedMaterials.push(weakMaterial);
   const minor = (m) => { m.castShadow = false; return m; };
+
+  if (key === 'submarine') {
+    const body = mesh(new THREE.SphereGeometry(1, 12, 8), darkSteel, root);
+    body.scale.set(s.width / 2, 1.35, s.length / 2);
+    box(root, 1.4, .5, 14, 0, .85, .3, steel);
+    box(root, 1.45, 2.1, 3.4, 0, 1.3, -.8, darkSteel);
+    box(root, 1.55, .2, 3.5, 0, 2.45, -.8, edgeSteel);
+    cylinder(root, .055, .08, 1.8, .35, 3.1, -.6, edgeSteel, 6);
+    box(root, .5, .12, .12, .18, 3.98, -.6, darkSteel);
+    box(root, 6.5, .18, 1.1, 0, -.2, 6.8, steel);
+    box(root, 5.2, .16, 1.6, 0, -.1, -8.9, steel);
+    box(root, .2, 2.8, 1.6, 0, -.1, -8.9, darkSteel);
+    const screw = ring(root, .8, .16, 0, -.25, -11.3, bronze);
+    screw.rotation.y = 0;
+    const weakOffset = new THREE.Vector3(0, 1.7, -.8);
+    root.userData.kind = key;
+    root.userData.submarine = true;
+    root.userData.dimensions = { width: s.width, length: s.length, deckHeight: 1.5 };
+    root.userData.weakOffset = weakOffset;
+    return { root, weakOffset, muzzleOffsets, smokeOffsets, hitRadius: s.radius,
+      ownedMaterials, ownedTextures, hullLength: s.length, hullWidth: s.width,
+      markerHeight: 5, submarine: true };
+  }
 
   // A rounded stern and pointed bow preserve a ship silhouette at long range.
   const shape = new THREE.Shape();
@@ -196,6 +220,11 @@ export function createWarship(kind, kit) {
   root.userData.kind = key;
   root.userData.dimensions = { width: s.width, length: s.length, deckHeight: s.deck };
   root.userData.weakOffset = weakOffset;
+  // Size variants change the whole flight deck, island, and parked aircraft together.
+  if (key === 'carrier' && kind !== 'carrier' && kind !== 'carrier5') {
+    const ratio = kind === 'carrier3' ? .86 : 1.16;
+    root.scale.set(ratio, 1, ratio);
+  }
   return { root, weakOffset, muzzleOffsets, smokeOffsets, hitRadius: s.radius,
     ownedMaterials, ownedTextures, hullLength: s.length, hullWidth: s.width,
     markerHeight: key === 'battleship' ? 13 : key === 'carrier' ? 12 : key === 'cruiser' ? 11 : 9 };

@@ -18,3 +18,33 @@
   .trigger{gap:4px}
   #fire b{font-size:18px;letter-spacing:2px;margin-left:2px}
 }
+
+/* Operation chart and expanded ship systems. */
+#worldMap{border:1px solid #66879055;border-radius:5px;overflow:hidden;background:#142d3b}
+#worldMap svg{display:block;width:100%;height:auto;max-height:280px}
+#worldMap g{cursor:pointer}
+.map-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:9px;color:#8eacb8;margin:8px 0 14px}
+.map-legend span:first-child{color:#d9b576}.map-legend span:nth-child(2){color:#6bd7b3}.map-legend span:last-child{color:#f2c47f}
+.part-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.part-tabs button{min-height:35px;flex:1;background:#203640;color:#a0b7c1;border:1px solid #526d7855;border-radius:3px;font-size:11px;touch-action:pan-y}
+.part-tabs button.active{color:#e7c188;border-color:#c7a86d;background:#69513455}
+#partStory{font-size:11px;line-height:1.8;color:#c0d0d5;margin:13px 0 20px}
+.area-card.locked{opacity:.5}.area-card.locked.selected{opacity:.8}
+#deploymentStatus{font-size:11px;color:#99cbb6;line-height:1.7;margin:12px 0 0}
+#deploymentStatus.warning{color:#ecc18d}
+#deploy:disabled{background:#344953;color:#8aa0a9;border-color:#587480;cursor:default}
+#supplyView>.shop-note{margin:0 0 15px}
+.supply-card{min-height:135px}.supply-card h3{margin:7px 0}
+.emergency-supply{margin-top:15px;padding:13px;border:1px solid #63857955;border-radius:4px;background:#17352e66}.emergency-supply button{min-height:40px;padding:8px 15px;background:#b4c9ac;color:#182c29;border-radius:3px;font-size:11px;touch-action:pan-y}.emergency-supply button:disabled{background:#314640;color:#78938b}.emergency-supply p{font-size:10px;line-height:1.7;color:#a4c2b6;margin:8px 0 0}
+.battery{min-width:0}.battery small{white-space:nowrap;font-size:9px;letter-spacing:1px}
+#supplyHUD,#threatStatus{position:absolute;left:24px;top:77px;z-index:4;font-size:10px;letter-spacing:1px;color:#ccd6d7;text-shadow:0 1px 3px #051723;background:#102330a3;padding:5px 8px;border-radius:3px;pointer-events:none}
+#threatStatus{top:103px;color:#d7c291}
+#tactical{position:absolute;z-index:4;left:24px;bottom:145px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;max-width:70%;pointer-events:auto}
+#tactical button,#depthControl{min-height:37px;border:1px solid #617b8755;border-radius:3px;background:#142936dd;color:#bfcfd5;padding:6px 10px;font-size:10px;letter-spacing:.5px}
+#tactical button:disabled{opacity:.45;cursor:default}#tactical button.active{color:#a2e5c8;border-color:#72bb9a}
+#depthControl{display:flex;align-items:center;gap:5px}#depth{background:#233e4c;color:#dfdacc;font:inherit;border:1px solid #6c929b77;border-radius:2px;padding:3px;min-height:28px}
+#radarScope{position:absolute;right:24px;top:74px;width:110px;z-index:4;pointer-events:none;background:#0c2530c7;border:1px solid #6d9d9644;border-radius:5px;padding:5px}
+#radarScope svg{display:block;width:100%;height:auto}#radarScope circle,#radarScope path{fill:none;stroke:#6da79a66;stroke-width:.7}#radarScope .scope-dot{stroke:none}#radarScope .self{fill:#b5dbca;stroke:none}#radarScope span{display:block;text-align:center;font-size:8px;color:#96c9b8;white-space:nowrap}
+body:not(.playing) #supplyHUD,body:not(.playing) #threatStatus,body:not(.playing) #radarScope{display:none}
+@media(max-height:500px){#supplyHUD{top:57px;left:16px;font-size:9px}#threatStatus{top:80px;left:16px;font-size:9px}#tactical{bottom:116px;left:16px;max-width:72%;gap:5px}#tactical button,#depthControl{min-height:32px;padding:5px 8px;font-size:9px}#radarScope{top:61px;right:16px;width:94px}#worldMap svg{max-height:180px}.map-legend{margin:5px 0 8px;font-size:8px}#partStory{font-size:10px;margin:9px 0 13px}.part-tabs button{min-height:30px;font-size:10px}}
+@media(orientation:portrait) and (max-width:700px){#supplyHUD{left:14px;top:118px;font-size:9px;letter-spacing:0}#threatStatus{left:14px;top:141px;font-size:9px;letter-spacing:0}#tactical{left:12px;right:12px;bottom:191px;max-width:none;gap:5px}#tactical button,#depthControl{min-height:34px;font-size:9px;padding:5px 8px}#radarScope{top:169px;right:12px;width:82px}.harbor-tabs button{padding:11px 9px;font-size:10px;letter-spacing:1px}#worldMap svg{max-height:none}#partStory{font-size:10px}.part-tabs{gap:4px}.part-tabs button{font-size:10px;min-height:32px}.battery small{font-size:8px;letter-spacing:.5px}.result-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.stat-value strong{font-size:21px}.result-panel h2{font-size:24px;letter-spacing:2px}}
