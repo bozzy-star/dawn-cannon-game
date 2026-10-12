@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { CannonAudio } from './audio.js?v=asahi-v5.1';
-import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v5.1';
-import { createWarship } from './enemies.js?v=asahi-v5.1';
-import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v5.1';
-import { Battlefield } from './battlefield.js?v=asahi-v5.1';
+import { CannonAudio } from './audio.js?v=asahi-v5.2';
+import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v5.2';
+import { createWarship } from './enemies.js?v=asahi-v5.2';
+import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v5.2';
+import { Battlefield } from './battlefield.js?v=asahi-v5.2';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -309,7 +309,8 @@ function spawnWave(){
   if(wave===1&&area.minefield?.count)threats.spawnMines(area.minefield.count);
   $('wave').textContent=`第${area.part}部 · ${area.id}海域 · ${wave}/${area.waves.length}波`;
   toast(wave===1?`第${area.id}海域　${area.name}`:'敵の増援を捕捉',2.8);audio.morse('CQ');
-  if(wave===1&&area.engagement==='broadside')yaw=-.95;
+  const visibleFleet=enemies.filter(e=>!e.dead&&!e.isShore&&e.kind!=='submarine');
+  if(visibleFleet.length){scene.updateMatrixWorld(true);const focus=weakPosition(visibleFleet[Math.floor(visibleFleet.length/2)]),from=maneuver.position.clone().add(new THREE.Vector3(0,13,9.5)),delta=focus.sub(from);yaw=Math.atan2(-delta.x,-delta.z);pitch=clamp(Math.atan2(delta.y,Math.hypot(delta.x,delta.z)),-.3,.2);}
 }
 function cleanupBattle(){
   threats.reset();battlefield.reset();selectedContact=null;
