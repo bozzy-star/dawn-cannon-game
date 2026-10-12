@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>弩級戦艦 朝日 | 艦隊戦と上陸支援</title>
-<link rel="stylesheet" href="./style.css?v=asahi-v5.2">
+<link rel="stylesheet" href="./style.css?v=asahi-v5.3">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
 </head>
 <body>
@@ -51,7 +51,7 @@
 <section id="end" class="overlay hidden"><div class="result-panel"><small id="endEyebrow">AREA CONQUERED</small><h2 id="endTitle">海域制圧</h2><p id="endArea"></p><div id="endScore" class="result-grid"></div><div class="reward-line"><span>獲得資金</span><strong id="reward">0</strong></div><div class="result-actions"><button id="toHarbor">港で強化</button><button id="nextArea">次の海域へ</button><button id="restart" class="secondary">再挑戦</button></div></div></section>
 <section id="harbor" class="overlay hidden"><div class="harbor-panel">
 <header class="harbor-head"><div><small>ASAHI / NAVAL DOCK</small><h2>作戦海域・艦装整備</h2></div><div class="wallet"><small>保有資金</small><strong id="credits">0</strong></div></header>
-<div class="condition-bar"><div><span>整備状況</span><strong id="condition">100%</strong></div><button id="repair">船体を修理</button><p id="repairNote">船体の損傷は次の出撃にも残ります。</p></div>
+<div class="condition-bar"><div><span>整備状況</span><strong id="condition">100%</strong></div><button id="repair">船体を修理</button><p id="repairNote">船体の損傷は次の出撃にも残ります。</p><button id="portInspect" class="secondary">船体を見る</button></div>
 <nav class="harbor-tabs"><button id="mapTab" class="active">作戦地図</button><button id="shopTab">強化パーツ</button><button id="supplyTab">消耗品・補給</button></nav>
 <div id="worldView"><div class="map-switch" role="group" aria-label="地図の表示範囲"><button id="mapWorld" class="active" aria-pressed="true">全体マップ</button><button id="mapPart" aria-pressed="false">各部を拡大</button></div><div id="worldMap"></div><div class="map-legend"><span>■ 暁和国</span><span>■ 制圧圏</span><span>● 未制圧</span><span>● 選択中</span></div><nav id="partTabs" class="part-tabs"></nav><p id="partStory"></p></div>
 <div id="mapView" class="harbor-body"><div id="mapList" class="map-list"></div><div class="area-detail"><small id="areaNumber"></small><h3 id="areaName"></h3><p id="briefing"></p><div id="enemyList" class="enemy-list"></div><div id="areaRecord" class="area-record"></div><div id="loadout" class="loadout"></div><p id="deploymentStatus"></p><button id="deploy">この海域へ出撃 →</button></div></div>
@@ -62,5 +62,5 @@
 <div id="rotate"><span>↻</span><p>スマホを横向きにすると<br>3門を見渡して遊べます</p></div>
 <div id="loading">海域を準備しています…</div>
 </main>
-<script type="module" src="./game.js?v=asahi-v5.2"></script>
+<script type="module" src="./game.js?v=asahi-v5.3"></script>
 </body></html>

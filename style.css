@@ -135,3 +135,5 @@ body:has(#reviewPanel:not(.hidden)) #controls,body:has(#reviewPanel:not(.hidden)
 @media(max-height:500px){#tactical .tactical-primary button{min-height:44px}}
 @media(orientation:portrait) and (max-width:700px){#tactical .tactical-primary button{min-height:44px}}
 @media(orientation:portrait) and (max-width:360px){#tactical .tactical-primary button{min-height:44px}}
+
+#portInspect{grid-column:1/-1;justify-self:start;min-height:36px;padding:7px 16px;font-size:11px;border:1px solid #66898d;background:#1a3540;color:#c1dcdf}

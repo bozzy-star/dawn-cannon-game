@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { CannonAudio } from './audio.js?v=asahi-v5.2';
-import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v5.2';
-import { createWarship } from './enemies.js?v=asahi-v5.2';
-import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v5.2';
-import { Battlefield } from './battlefield.js?v=asahi-v5.2';
+import { CannonAudio } from './audio.js?v=asahi-v5.3';
+import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v5.3';
+import { createWarship } from './enemies.js?v=asahi-v5.3';
+import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v5.3';
+import { Battlefield } from './battlefield.js?v=asahi-v5.3';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -183,7 +183,7 @@ let lastResult=null,enemyCounter=0,morseCooldown=0,energyFlash=0;
 let dragonUses=0,fuelTimer=0,selectedContact=null,bombDepth=50,auxiliary=null;
 let worldPart=AREAS[chosenArea-1].part||1;
 let mapZoom='world',weaponMode='main',battlePhase='naval',assaultTime=0,landingIntegrity=100,landingArrival=0;
-let reviewActive=false,reviewTime=0,reviewPending=false,rangeSetting=180,damageSmokeTimer=0,advancedOpen=false;
+let reviewReturn='result',reviewActive=false,reviewTime=0,reviewPending=false,rangeSetting=180,damageSmokeTimer=0,advancedOpen=false;
 let weather={timeOfDay:'day',weather:'clear',seaState:.35,windX:0,windZ:0,radarFactor:1};
 const maneuver={position:new THREE.Vector3(),velocity:new THREE.Vector3(),speed:1.6,boost:false,evading:false,evadeWindow:false,evadeTimer:0,evadeCooldown:0,side:0,rollKick:0,pitchKick:0};
 let zones={...campaign.state.damageZones};
@@ -367,7 +367,7 @@ function updateCamera(){
   const sea=weather.seaState||.35,roll=Math.sin(elapsed*.91)*.012*sea+Math.sin(elapsed*1.83)*.006*sea+maneuver.rollKick;
   const heave=Math.sin(elapsed*.76)*(.12+sea*.3),swell=Math.sin(elapsed*.62)*.01*sea+maneuver.pitchKick;
   ship.position.copy(maneuver.position);ship.position.y=heave;ship.rotation.set(swell,maneuver.evading?maneuver.side*.1*Math.sin(maneuver.evadeTimer):0,roll);
-  if(reviewActive){const angle=reviewTime*.65;camera.position.set(ship.position.x+Math.sin(angle)*72,ship.position.y+42,ship.position.z+20+Math.cos(angle)*72);camera.lookAt(ship.position.clone().add(new THREE.Vector3(0,4,15)));camera.updateMatrixWorld(true);return;}
+  if(reviewActive){const angle=reviewTime*Math.PI/4;camera.position.set(ship.position.x+Math.sin(angle)*72,ship.position.y+42,ship.position.z+20+Math.cos(angle)*72);camera.lookAt(ship.position.clone().add(new THREE.Vector3(0,4,15)));camera.updateMatrixWorld(true);return;}
   camera.position.set(ship.position.x,13+ship.position.y,ship.position.z+9.5);camera.rotation.order='YXZ';
   camera.rotation.set(pitch+swell*.75+(Math.random()-.5)*shake*.013,yaw+(Math.random()-.5)*shake*.008,roll*.8);
   const merge=charge?clamp(charge.time/1.25,0,1)*(charge.fired?clamp(1-(charge.time-1.4)/.9,0,1):1):0;
@@ -656,10 +656,16 @@ function endGame(won,reason='艦体大破'){
   const values=[['撃沈数',`${kills}`,'隻'],['得点',lastResult.score.toLocaleString(),'点'],['命中率',`${lastResult.accuracy}`,'%'],['発射 / 命中',`${stats.shots} / ${stats.hits}`,'砲撃'],['艦体状態',`${Math.round(hp/maxHP*100)}`,'%'],['総合評価',lastResult.rank,`${Math.floor(gameTime)}秒`],['撃墜数',`${stats.airKills||0}`,'機'],['龍神砲',`${dragonUses}`,'回'],['残存燃料',`${campaign.state.stock.fuel}`,'単位'],['岸目標壊滅',`${stats.shoreKills||0}`,'か所'],['上陸部隊',area.shoreAssault?`${Math.round(landingIntegrity)}`:'—',area.shoreAssault?'%':'海上戦'],['修理費',`${campaign.repairQuote().cost}`,'C']];
   $('endScore').innerHTML=values.map(([label,value,unit])=>`<div class="stat-value"><small>${label}</small><strong>${value}</strong><em>${unit}</em></div>`).join('');$('reward').textContent=`+${lastResult.reward.toLocaleString()} C`;
   $('nextArea').classList.toggle('hidden',!won||activeArea>=AREAS.length);$('toHarbor').textContent=won?'港で修理・強化':'港で装備を見直す';
-  if(won){audio.morse('VICTORY');audio.announce(activeArea===AREAS.length?'全海域、制圧完了。':'海域、制圧完了。');reviewActive=true;reviewTime=0;reviewPending=true;setScreen('review');}
+  if(won){reviewReturn='result';$('reviewPanel').querySelector('h2').textContent='朝日、海域制圧。';$('skipReview').textContent='戦績を見る →';audio.morse('VICTORY');audio.announce(activeArea===AREAS.length?'全海域、制圧完了。':'海域、制圧完了。');reviewActive=true;reviewTime=0;reviewPending=true;setScreen('review');}
   else setScreen('result');updateSaveSummary();
 }
-function showResult(){if(!reviewPending)return;reviewPending=false;reviewActive=false;setScreen('result');}
+function showResult(){if(!reviewPending)return;reviewPending=false;reviewActive=false;if(reviewReturn==='harbor'){setScreen('harbor');renderHarbor();}else setScreen('result');}
+function inspectHull(){
+  if(uiMode!=='harbor')return false;
+  maxHP=100+campaign.state.upgrades.armor*30;hp=maxHP*campaign.state.hull/100;zones={...campaign.state.damageZones};syncDamageVisual();updateHullHUD();maneuver.position.set(0,0,0);maneuver.rollKick=maneuver.pitchKick=0;
+  setWeather({...AREAS[0],weather:{...AREAS[0].weather,timeOfDay:'day'}});reviewReturn='harbor';reviewTime=0;reviewPending=reviewActive=true;
+  $('reviewPanel').querySelector('h2').textContent='朝日、船体点検。';$('skipReview').textContent='港に戻る →';setScreen('review');return true;
+}
 function chooseWeapon(mode){if(uiMode!=='battle'||(mode==='aa'&&!campaign.state.upgrades.aa))return;weaponMode=mode;holdFire=false;salvoQueue=[];toast(mode==='aa'?'高角砲 · 空へ照準を動かし、発射で迎撃':'主砲 · 敵の進行方向へ偏差射撃',1.8);}
 
 function setPause(value){
@@ -670,7 +676,7 @@ async function start(){const promise=audio.unlock();started=true;chosenArea=clam
 $('startButton').addEventListener('click',start);
 $('mapWorld').addEventListener('click',()=>{mapZoom='world';renderWorldMap();});$('mapPart').addEventListener('click',()=>{mapZoom='part';renderWorldMap();});
 $('repair').addEventListener('click',()=>{const result=campaign.repairHull();zones={...campaign.state.damageZones};hp=maxHP*campaign.state.hull/100;renderHarbor();$('shopMessage').textContent=result.reason;audio.unlock();if(result.ok)audio.morse('OK');});
-$('skipReview').addEventListener('click',showResult);$('mainMode').addEventListener('click',()=>chooseWeapon('main'));$('aaSelect').addEventListener('click',()=>chooseWeapon('aa'));
+$('portInspect').addEventListener('click',inspectHull);$('skipReview').addEventListener('click',showResult);$('mainMode').addEventListener('click',()=>chooseWeapon('main'));$('aaSelect').addEventListener('click',()=>chooseWeapon('aa'));
 $('evadeLeft').addEventListener('click',()=>{audio.unlock();evade(-1);});$('evadeRight').addEventListener('click',()=>{audio.unlock();evade(1);});
 $('speedButton').addEventListener('click',()=>{if(uiMode==='battle')maneuver.boost=!maneuver.boost;});$('tacticalToggle').addEventListener('click',()=>{advancedOpen=!advancedOpen;});
 $('aaAssist').addEventListener('click',()=>{if(uiMode==='battle'){audio.unlock();const result=threats.toggleAAMode();toast(result.reason);}});
