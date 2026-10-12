@@ -32,8 +32,9 @@ export function buildFlagship(kit) {
   // The stepped bridge rises above the funnels, matching the references' silhouette.
   const bridge=new THREE.Group();bridge.name='pagoda-bridge';bridge.position.z=34;ship.add(bridge);
   for(const [y,w,d,h] of [[4.0,13,12,2.4],[6.4,10.2,10,2.6],[9.1,8.2,8.3,2.4],[11.8,9.8,6.7,2.1],[14,7.2,5.8,2],[16,6,5,1.9],[18,5.4,4.4,1.8],[20,7.4,3.9,1.5]]){
-    box(bridge,w,h,d,0,y,0,steel);box(bridge,w+.65,.2,d+.6,0,y+h*.5+.15,0,edgeSteel);
-    if(y>=6){box(bridge,w*.88,.48,.045,0,y+.25,-d/2-.03,glass);for(const side of [-1,1])box(bridge,.045,.48,d*.7,side*(w/2+.025),y+.25,-.2,glass);}
+    const core=cylinder(bridge,w*.48,w*.51,h,0,y,0,steel,20);core.scale.z=d/w;
+    const roof=cylinder(bridge,w*.53,w*.53,.18,0,y+h*.5+.15,0,edgeSteel,20);roof.scale.z=(d+.6)/(w+1);
+    if(y>=6){const panes=mesh(new THREE.CylinderGeometry(w*.49+.04,w*.49+.04,.48,24,1,true,Math.PI/2,Math.PI),glass,bridge,0,y+.25,0);panes.scale.z=d/w;}
   }
   cylinder(bridge,.15,.28,9,0,24.5,1,edgeSteel,10);
   for(const [y,w] of [[22,13],[25,9],[28,6]]){box(bridge,w,.12,.12,0,y,1,darkSteel);line([-w/2,y,35],[0,29,35]);line([w/2,y,35],[0,29,35]);}

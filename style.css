@@ -162,3 +162,5 @@ body:has(#reviewPanel:not(.hidden)) #controls,body:has(#reviewPanel:not(.hidden)
  #directTactical button,#directTactical label{min-height:34px;font-size:9px;min-width:65px}#directTactical #contact{min-width:95px}#autoAAStatus{font-size:9px}
  #weatherHUD,#objectiveHUD{max-width:calc(100% - 24px)}
 }
+
+body:has(#reviewPanel:not(.hidden)) #rotate{display:none}

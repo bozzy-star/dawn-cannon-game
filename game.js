@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { CannonAudio } from './audio.js?v=asahi-v6';
-import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v6';
-import { createWarship } from './enemies.js?v=asahi-v6';
-import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v6';
-import { Battlefield } from './battlefield.js?v=asahi-v6';
-import { buildFlagship } from './flagship.js?v=asahi-v6';
+import { CannonAudio } from './audio.js?v=asahi-v6.1';
+import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v6.1';
+import { createWarship } from './enemies.js?v=asahi-v6.1';
+import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v6.1';
+import { Battlefield } from './battlefield.js?v=asahi-v6.1';
+import { buildFlagship } from './flagship.js?v=asahi-v6.1';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -64,17 +64,19 @@ void main(){vec3 p=position;float w=sin(p.x*.043+time*.7)*.34+sin(p.y*.065-time*
 uniform float time;uniform vec3 sun;uniform vec3 seaTint;uniform vec3 fogTint;uniform float lightLevel;uniform vec2 shipXZ;uniform float shipSpeed;varying vec3 world;varying float wave;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}
-void main(){vec2 p=world.xz;float nx=cos(p.x*.043+time*.7)*.0146+cos((p.x-p.y)*.9+time*1.2)*.055+cos(p.x*2.4+time*1.6)*.017;
-float nz=cos(p.y*.065+time*.9)*.014+cos((p.x+p.y)*.75-time*.9)*.045+cos(p.y*2.1-time)*.02;
+void main(){vec2 p=world.xz;float dist=length(cameraPosition-world);float detail=1.-smoothstep(25.,190.,dist);
+float nx=cos(p.x*.043+time*.7)*.021+cos((p.x-p.y)*.9+time*1.2)*.044*detail+cos(p.x*2.4+time*1.6)*.012*detail;
+float nz=cos(p.y*.065+time*.9)*.018+cos((p.x+p.y)*.75-time*.9)*.036*detail+cos(p.y*2.1-time)*.012*detail;
 vec3 n=normalize(vec3(-nx,1.,-nz));vec3 v=normalize(cameraPosition-world);float fres=pow(1.-max(dot(n,v),0.),3.);vec3 refl=reflect(-v,n);vec3 sky=mix(vec3(.58,.67,.73),vec3(.23,.4,.56),sqrt(max(refl.y,0.)));
 float sparkle=pow(max(dot(reflect(-sun,n),v),0.),145.);float ripple=noise(p*.45+time*.06);vec3 col=mix(mix(vec3(.025,.105,.135),seaTint,.35)+ripple*.035,sky,fres*.83);col+=vec3(1.,.85,.6)*sparkle*.85;
-float crest=smoothstep(.45,.82,wave)*smoothstep(.4,.75,noise(p*1.5+time*.22));
+float seaWave=sin(p.x*.043+time*.7)*.34+sin(-p.y*.065-time*.9)*.21+sin((p.x-p.y)*.11+time*1.1)*.07;
+float crest=smoothstep(.31,.55,seaWave)*smoothstep(.45,.78,noise(p*.6+time*.22))*(.25+.75*detail);
 vec2 wake=p-shipXZ;float aft=wake.y-80.;float wakeWidth=4.+max(aft,0.)*.16;
 float trail=step(0.,aft)*exp(-max(aft,0.)*.018)*exp(-pow(abs(wake.x)/wakeWidth,2.));
 float bowFoam=exp(-pow((wake.y+37.)*.35,2.))*exp(-pow((abs(wake.x)-4.)*.28,2.));
 float foam=clamp(crest*.6+(trail*.58+bowFoam*.55)*smoothstep(.25,.7,noise(p*.8-time*.9))*min(shipSpeed*.5,1.5),0.,.76);
 col=mix(col,vec3(.68,.77,.77),foam);
-float dist=length(cameraPosition-world);float fog=1.-exp(-dist*.0016);col=mix(col,fogTint,fog);col*=lightLevel;gl_FragColor=vec4(col,1.);}`});
+float fog=1.-exp(-dist*.0016);col=mix(col,fogTint,fog);col*=lightLevel;gl_FragColor=vec4(col,1.);}`});
 const water = new THREE.Mesh(new THREE.PlaneGeometry(2800,2800,150,150),waterMat);
 water.rotation.x = -Math.PI/2;
 scene.add(water);
@@ -349,7 +351,7 @@ function updateCamera(){
   const sea=weather.seaState||.35,roll=Math.sin(elapsed*.91)*.012*sea+Math.sin(elapsed*1.83)*.006*sea+maneuver.rollKick;
   const heave=Math.sin(elapsed*.76)*(.12+sea*.3),swell=Math.sin(elapsed*.62)*.01*sea+maneuver.pitchKick;
   ship.position.copy(maneuver.position);ship.position.y=heave;ship.rotation.set(swell,maneuver.evading?maneuver.side*.1*Math.sin(maneuver.evadeTimer):0,roll);
-  if(reviewActive){const angle=reviewTime*Math.PI/4;camera.position.set(ship.position.x+Math.sin(angle)*112,ship.position.y+67,ship.position.z+24+Math.cos(angle)*112);camera.lookAt(ship.position.clone().add(new THREE.Vector3(0,6,24)));camera.updateMatrixWorld(true);return;}
+  if(reviewActive){const angle=reviewTime*Math.PI/4+Math.PI*.73;camera.position.set(ship.position.x+Math.sin(angle)*112,ship.position.y+48,ship.position.z+24+Math.cos(angle)*112);camera.lookAt(ship.position.clone().add(new THREE.Vector3(0,6,24)));camera.updateMatrixWorld(true);return;}
   camera.position.set(ship.position.x,13+ship.position.y,ship.position.z+9.5);camera.rotation.order='YXZ';
   camera.rotation.set(pitch+swell*.75+(Math.random()-.5)*shake*.013,yaw+(Math.random()-.5)*shake*.008,roll*.8);
   const merge=charge?clamp(charge.time/1.25,0,1)*(charge.fired?clamp(1-(charge.time-1.4)/.9,0,1):1):0;
