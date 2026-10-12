@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { CannonAudio } from './audio.js?v=asahi-v6.2';
-import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v6.2';
-import { createWarship } from './enemies.js?v=asahi-v6.2';
-import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v6.2';
-import { Battlefield } from './battlefield.js?v=asahi-v6.2';
-import { buildFlagship } from './flagship.js?v=asahi-v6.2';
+import { CannonAudio } from './audio.js?v=asahi-v6.3';
+import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v6.3';
+import { createWarship } from './enemies.js?v=asahi-v6.3';
+import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v6.3';
+import { Battlefield } from './battlefield.js?v=asahi-v6.3';
+import { buildFlagship } from './flagship.js?v=asahi-v6.3';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;

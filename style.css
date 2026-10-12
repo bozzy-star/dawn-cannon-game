@@ -164,3 +164,17 @@ body:has(#reviewPanel:not(.hidden)) #controls,body:has(#reviewPanel:not(.hidden)
 }
 
 body:has(#reviewPanel:not(.hidden)) #rotate{display:none}
+/* Keep the crosshair clear even with sonar, depth charges and range controls installed. */
+@media(orientation:landscape) and (max-height:500px){
+ #tactical{left:auto;right:16px;top:60px;bottom:auto;width:350px}
+ #directTactical{gap:4px}#directTactical button,#directTactical label{min-width:62px;min-height:34px}
+ #directTactical #contact{min-width:98px}#autoAAStatus{font-size:8.5px}
+}
+@media(orientation:portrait) and (max-width:700px){
+ #directTactical #rangeControl,#directTactical #depthControl{position:fixed;right:12px;top:151px;min-height:31px;width:104px;font-size:8px;padding:3px;flex:none}
+ #directTactical #depthControl{top:188px}
+ #weatherHUD,#objectiveHUD{max-width:calc(100% - 130px)}
+ #range{top:calc(50% - 37px)}#weaponName{top:calc(50% - 20px);font-size:8px;letter-spacing:0}
+ #directTactical{flex-wrap:nowrap}#directTactical #contact{min-width:95px;font-size:8px}
+ #directTactical button{min-width:60px;padding:4px}#tactical .tactical-primary button{font-size:10px}
+}
