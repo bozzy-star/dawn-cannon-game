@@ -12,11 +12,14 @@ export function createAviationDeck(kit) {
   ownedMaterials.push(safety,...Object.values(planeMaterials));
   // The visible flight deck is higher than the aft guns and wider than the hull.
   // Open side supports and the dark stern hangar opening distinguish the hybrid.
-  box(group,20.0,5.5,34,0,5.32,67.5,darkSteel);
-  box(group,22.8,.38,40.5,0,8.29,68.5,steel);
-  box(group,23.6,.12,41.0,0,8.53,68.5,wood);
+  box(group,19.5,4.95,33.4,0,5.4,67.5,black).name='shadowed-hangar-interior';
+  const deckOutline=new THREE.Shape();deckOutline.moveTo(-8.9,48);
+  for(const point of [[8.9,48],[11.7,54],[11.7,85.5],[9.55,89],[-9.55,89],[-11.7,85.5],[-11.7,54]])deckOutline.lineTo(...point);deckOutline.closePath();
+  const deckPlate=mesh(new THREE.ExtrudeGeometry(deckOutline,{depth:.36,bevelEnabled:true,bevelSize:.07,bevelThickness:.04,bevelSegments:1,steps:1}),steel,group,0,8.48,0);deckPlate.rotation.x=Math.PI/2;deckPlate.name='chamfered-flight-deck';
+  const flightSurface=mesh(new THREE.ShapeGeometry(deckOutline,10),wood,group,0,8.53,0);flightSurface.rotation.x=-Math.PI/2;flightSurface.scale.y=-1;flightSurface.name='teak-flight-deck';
   box(group,14.2,3.65,.08,0,4.86,84.55,black).name='stern-hangar-door';
   box(group,15.4,.56,1.0,0,7.2,84.8,edgeSteel);
+  box(group,20.1,5.2,.5,0,5.2,50.5,steel).name='hangar-forward-bulkhead';
   for(const side of [-1,1]) {
     box(group,.48,5.4,34,side*10.1,5.55,67.5,steel);
     box(group,.22,.68,40.4,side*11.5,8.2,68.5,darkSteel);
@@ -27,6 +30,14 @@ export function createAviationDeck(kit) {
   }
   const deckLines=[],cableLines=[];
   const line=(list,a,b)=>list.push(...a,...b);
+  // Tall hinged hangar doors, side louvers and structural braces give the
+  // elevated flight deck depth instead of an uninterrupted gray block.
+  for(const side of [-1,1]){
+    for(let z=52;z<83;z+=4.0){line(cableLines,[side*10.4,3.1,z],[side*10.4,7.7,z+2.2]);line(cableLines,[side*10.4,7.7,z],[side*10.4,3.1,z+2.2]);}
+    for(let z=54;z<82;z+=3)for(const y of [5.35,5.65,5.95])line(cableLines,[side*10.36,y,z],[side*10.36,y,z+1.6]);
+    for(const x of [1.2,2.4,3.6,4.8,6.0])line(cableLines,[side*x,3.12,84.66],[side*x,6.57,84.66]);
+  }
+  for(const y of [3.3,4.1,4.9,5.7,6.5])line(cableLines,[-6.9,y,84.65],[6.9,y,84.65]);
   // Painted centerline, arresting wires, elevator recess and a dashed launch lane.
   for(const x of [-2.9,2.9])line(deckLines,[x,8.61,49],[x,8.61,87.7]);
   for(let z=49.5;z<87;z+=3.0)line(deckLines,[0,8.62,z],[0,8.62,z+1.4]);

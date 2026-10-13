@@ -1,7 +1,7 @@
-import { createAviationDeck } from './aviation-deck.js?v=asahi-v7.0';
+import { createAviationDeck } from './aviation-deck.js?v=asahi-v8.0';
 // Code-built naval geometry: long bow, pagoda bridge and a shared expanding turret.
 export function buildFlagship(kit) {
-  const {THREE,steel:baseSteel,darkSteel:baseDarkSteel,edgeSteel,wood:baseWood,black,bronze,box,cylinder,ring,mesh}=kit;
+  const {THREE,steel:baseSteel,darkSteel:baseDarkSteel,edgeSteel:baseEdgeSteel,wood:baseWood,black,bronze,box,cylinder,ring,mesh}=kit;
   const ownedMaterials=[],ownedTextures=[];
   function surfaceTexture(paint) {
     const canvas=document.createElement('canvas');canvas.width=canvas.height=256;paint(canvas.getContext('2d'));
@@ -17,20 +17,21 @@ export function buildFlagship(kit) {
     for(let i=0;i<30;i++){const x=random()*256,y=random()*256;ctx.fillStyle='#7c523626';ctx.fillRect(x,y,2+random()*5,4+random()*17);}
   });
   const plankMap=surfaceTexture(ctx=>{
-    ctx.fillStyle='#766e58';ctx.fillRect(0,0,256,256);
-    for(let y=0;y<256;y+=16){ctx.fillStyle=y%32?'#5f5b4c':'#847a61';ctx.fillRect(0,y,256,15);ctx.fillStyle='#1e2829';ctx.fillRect(0,y,256,1);
-      for(let x=(y%48)*2;x<256;x+=84){ctx.fillRect(x,y,1,16);ctx.fillRect(x+3,y+3,1,1);ctx.fillRect(x+3,y+12,1,1);}
-      ctx.fillStyle='#aea28433';ctx.fillRect(0,y+5,256,1);ctx.fillStyle='#332f2533';ctx.fillRect(0,y+11,256,1);}
+    ctx.fillStyle='#a28a62';ctx.fillRect(0,0,256,256);
+    for(let x=0;x<256;x+=16){ctx.fillStyle=x%32?'#877353':'#b49a6c';ctx.fillRect(x,0,15,256);ctx.fillStyle='#403d32';ctx.fillRect(x,0,1,256);
+      for(let y=(x%48)*2;y<256;y+=84){ctx.fillRect(x,y,16,1);ctx.fillRect(x+3,y+3,1,1);ctx.fillRect(x+12,y+3,1,1);}
+      ctx.fillStyle='#dbc49833';ctx.fillRect(x+5,0,1,256);ctx.fillStyle='#63523e44';ctx.fillRect(x+11,0,1,256);}
   });
-  plankMap.repeat.set(.18,.18);
-  const steel=baseSteel.clone();steel.map=plateMap;steel.color.setHex(0xc0c7c9);steel.roughness=.53;steel.metalness=.66;
-  const darkSteel=baseDarkSteel.clone();darkSteel.map=plateMap;darkSteel.color.setHex(0x687378);darkSteel.roughness=.61;darkSteel.metalness=.55;
-  const wood=baseWood.clone();wood.map=plankMap;wood.color.setHex(0xc2baa4);wood.roughness=.88;
-  ownedMaterials.push(steel,darkSteel,wood);
+  plateMap.repeat.set(2,1);plankMap.repeat.set(1,1);
+  const steel=baseSteel.clone();steel.map=plateMap;steel.color.setHex(0xc0c5c5);steel.roughness=.67;steel.metalness=.24;
+  const darkSteel=baseDarkSteel.clone();darkSteel.map=plateMap;darkSteel.color.setHex(0x818b8f);darkSteel.roughness=.72;darkSteel.metalness=.19;
+  const edgeSteel=baseEdgeSteel.clone();edgeSteel.map=plateMap;edgeSteel.color.setHex(0xd8dbd5);edgeSteel.roughness=.61;edgeSteel.metalness=.25;
+  const wood=baseWood.clone();wood.map=plankMap;wood.color.setHex(0xd8c7a4);wood.roughness=.88;
+  ownedMaterials.push(steel,darkSteel,edgeSteel,wood);
   const ship=new THREE.Group();ship.name='Asahi';
   const detail=new THREE.Group();detail.name='ship-details';ship.add(detail);
   const standardAft=new THREE.Group();standardAft.name='battleship-aft-equipment';ship.add(standardAft);
-  const red=new THREE.MeshStandardMaterial({color:0x4d2624,roughness:.86,metalness:.2});
+  const red=new THREE.MeshStandardMaterial({color:0x782f27,roughness:.87,metalness:.1});
   const glass=new THREE.MeshStandardMaterial({color:0x07181f,metalness:.08,roughness:.32});
   ownedMaterials.push(red,glass);
   const plan=new THREE.Shape();plan.moveTo(0,-42);
@@ -40,6 +41,7 @@ export function buildFlagship(kit) {
   plan.bezierCurveTo(9,-25,3,-40,0,-42);plan.closePath();
   const hull=mesh(new THREE.ExtrudeGeometry(plan,{depth:4.6,bevelEnabled:true,bevelSize:.38,bevelThickness:.4,bevelSegments:2,steps:1}),darkSteel,ship,0,2.0,0);hull.rotation.x=Math.PI/2;
   const under=hull.clone();under.material=red;under.position.y=-1.9;under.scale.set(.98,.98,.48);ship.add(under);
+  const bootstripe=mesh(new THREE.ExtrudeGeometry(plan,{depth:.65,bevelEnabled:false}),red,ship,0,.21,0);bootstripe.rotation.x=Math.PI/2;bootstripe.scale.set(1.009,1.002,1);bootstripe.name='oxide-red-waterline';
   const deck=mesh(new THREE.ShapeGeometry(plan,22),wood,ship,0,2.08,0);deck.rotation.x=-Math.PI/2;deck.scale.y=-1;
   const foredeck=box(ship,15.5,.75,28,0,2.4,-5,steel);foredeck.name='armored-foredeck';
   box(ship,17.4,.16,38,0,2.83,25,wood);
@@ -62,11 +64,16 @@ export function buildFlagship(kit) {
   }
   // The stepped bridge rises above the funnels, matching the references' silhouette.
   const bridge=new THREE.Group();bridge.name='pagoda-bridge';bridge.position.z=34;ship.add(bridge);
+  function armoredPrism(parent,w,h,d,x,y,z,material=steel,bevel=.04){
+    const outline=new THREE.Shape(),cut=Math.min(w,d)*.19;
+    outline.moveTo(-w/2+cut,-d/2);for(const p of [[w/2-cut,-d/2],[w/2,-d/2+cut],[w/2,d/2-cut],[w/2-cut,d/2],[-w/2+cut,d/2],[-w/2,d/2-cut],[-w/2,-d/2+cut]])outline.lineTo(...p);outline.closePath();
+    const body=mesh(new THREE.ExtrudeGeometry(outline,{depth:h,bevelEnabled:bevel>0,bevelSize:bevel,bevelThickness:bevel,bevelSegments:1,steps:1}),material,parent,x,y+h/2,z);body.rotation.x=Math.PI/2;return body;
+  }
   for(const [y,w,d,h] of [[4.0,13,12,2.4],[6.4,10.2,10,2.6],[9.1,8.2,8.3,2.4],[11.8,9.8,6.7,2.1],[14,7.2,5.8,2],[16,6,5,1.9],[18,5.4,4.4,1.8],[20,7.4,3.9,1.5]]){
-    if(y<10){box(bridge,w,h,d,0,y,0,steel);}else{const core=cylinder(bridge,w*.48,w*.51,h,0,y,0,steel,20);core.scale.z=d/w;}
-    const roof=cylinder(bridge,w*.53,w*.53,.18,0,y+h*.5+.15,0,edgeSteel,20);roof.scale.z=(d+.6)/(w+1);
-    if(y>=6&&y<10){box(bridge,w*.86,.54,.05,0,y+.3,-d/2-.035,glass);for(const side of [-1,1])box(bridge,.05,.54,d*.75,side*(w/2+.035),y+.3,0,glass);}
-    if(y>=10){const panes=mesh(new THREE.CylinderGeometry(w*.49+.04,w*.49+.04,.48,24,1,true,Math.PI/2,Math.PI),glass,bridge,0,y+.25,0);panes.scale.z=d/w;}
+    armoredPrism(bridge,w,h,d,0,y,0);
+    armoredPrism(bridge,w+.7,.2,d+.6,0,y+h*.5+.15,0,edgeSteel,.01);
+    if(y>=6){box(bridge,w*.60,.48,.055,0,y+.26,-d/2-.06,glass);for(const side of [-1,1])box(bridge,.055,.48,d*.60,side*(w/2+.06),y+.26,0,glass);
+      for(let x=-w*.27;x<=w*.27;x+=.73)line([x,y+.03,34-d/2-.10],[x,y+.5,34-d/2-.10]);}
   }
   for(const [y,w,z] of [[9.8,14,-.9],[13.5,12,-.3],[17.2,9,0]]){box(bridge,w,.23,3.8,0,y,z,edgeSteel);for(const side of [-1,1]){box(bridge,2.1,.9,2.9,side*(w/2-1),y+.55,z,darkSteel);box(bridge,1.7,.35,.05,side*(w/2-1),y+.7,z-1.5,glass);line([side*w/2,y+.85,z+32],[side*w/2,y+.85,z+36]);}}
   // Observation wings, optical directors and exterior lattice stairs make the
@@ -102,16 +109,12 @@ export function buildFlagship(kit) {
   box(standardAft,10.8,2.7,27,0,3.8,54,steel);box(standardAft,11.4,.17,25,0,5.23,54,wood);
   cylinder(standardAft,.13,.22,13,0,12.5,67,edgeSteel,8);box(standardAft,9,.12,.12,0,16.3,67,edgeSteel);
   const aftLines=[-4.5,16.3,67,0,19,67,4.5,16.3,67,0,19,67];
-  // Aft heavy turret, secondary batteries, boats and stern aircraft catapult.
-  function decorativeTurret(x,z,scale=1,direction=1,parent=ship){
-    const t=new THREE.Group();t.position.set(x,2.9,z);t.scale.setScalar(scale);t.rotation.y=direction<0?Math.PI:0;parent.add(t);
-    cylinder(t,3.2,3.6,1,0,.5,0,darkSteel,20);box(t,6.5,2,4.8,0,1.6,0,steel);box(t,6.8,.18,4.8,0,2.7,0,edgeSteel);
-    for(const x of [-1.65,0,1.65]){const tube=cylinder(t,.29,.43,7,x,1.9,-4.8,steel,16);tube.rotation.x=-Math.PI/2;ring(t,.3,.055,x,1.9,-8.25,edgeSteel);}
-    return t;
-  }
-  const aftTurret=decorativeTurret(0,74,.91,-1,standardAft);aftTurret.name='aft-heavy-turret';
-  const hybridForeTurret=decorativeTurret(0,15,1.0,1);hybridForeTurret.position.y=4.0;hybridForeTurret.name='hybrid-forward-secondary-turret';hybridForeTurret.visible=false;
-  for(const side of [-1,1])for(const z of [31,57])decorativeTurret(side*7.5,z,.36,side<0?1:-1);
+  // Legacy decorative heavy guns are absent. Every visible main barrel belongs
+  // to the purchased battery; a conversion does not create free artillery.
+  const aftTurret=new THREE.Group();aftTurret.name='aft-heavy-turret';aftTurret.visible=false;standardAft.add(aftTurret);
+  const hybridForeTurret=new THREE.Group();hybridForeTurret.name='hybrid-forward-secondary-turret';hybridForeTurret.visible=false;ship.add(hybridForeTurret);
+  aftTurret.userData.decorativeWeapon=hybridForeTurret.userData.decorativeWeapon=true;
+  armoredPrism(standardAft,5.0,.45,7.8,0,2.4,76,steel,.08).name='aft-deck-storage';
   for(const side of [-1,1]){const boat=mesh(new THREE.SphereGeometry(1,10,6),wood,detail,side*7.3,5.6,45);boat.scale.set(1.2,.55,4.4);box(detail,1.5,.45,5.3,side*7.3,5.8,45,edgeSteel);}
   box(standardAft,9,.25,.7,0,3.0,86,darkSteel);cylinder(standardAft,.13,.25,6,5.7,5.5,85,darkSteel,8);aftLines.push(5.7,8.5,85,.5,6.7,87,5.7,8.5,85,5.7,3,85);
   const lineMaterial=new THREE.LineBasicMaterial({color:0x8c9897,transparent:true,opacity:.68});ownedMaterials.push(lineMaterial);
@@ -121,8 +124,14 @@ export function buildFlagship(kit) {
   const rivetGeometry=new THREE.BufferGeometry();rivetGeometry.setAttribute('position',new THREE.Float32BufferAttribute(rivets,3));
   const rivetMaterial=new THREE.PointsMaterial({color:0xb0b9b9,size:.08});ownedMaterials.push(rivetMaterial);
   detail.add(new THREE.Points(rivetGeometry,rivetMaterial));
-  const aviation=createAviationDeck({...kit,steel,darkSteel,wood});ship.add(aviation.group);aviation.group.visible=false;
+  const aviation=createAviationDeck({...kit,steel,darkSteel,edgeSteel,wood});ship.add(aviation.group);aviation.group.visible=false;
   ownedMaterials.push(...aviation.ownedMaterials);ownedTextures.push(...aviation.ownedTextures);
+  const armorBelts=[];
+  for(let level=1;level<=3;level++){
+    const belt=new THREE.Group();belt.name=`armor-upgrade-${level}`;ship.add(belt);belt.visible=false;
+    for(const side of [-1,1])box(belt,.10,.21,65,side*(11.25+level*.045),1.35+level*.13,29,level===3?edgeSteel:steel);
+    armorBelts.push(belt);
+  }
   const batteryMount=new THREE.Group();batteryMount.name='expanding-main-battery';batteryMount.position.set(0,2.8,-5);ship.add(batteryMount);
   cylinder(batteryMount,5.1,5.55,.65,0,.33,0,darkSteel,40);cylinder(batteryMount,4.95,5.1,.75,0,1,0,steel,40);
   const turretYaw=new THREE.Group();turretYaw.position.y=1.35;batteryMount.add(turretYaw);
@@ -133,23 +142,47 @@ export function buildFlagship(kit) {
   const turretElevation=new THREE.Group();turretElevation.position.set(0,2.22,-3);turretYaw.add(turretElevation);
   const guns=[],MUZZLE_Z=-13.1;
   for(let i=0;i<4;i++){
-    const barrel=new THREE.Group();barrel.name=`main-gun-${i+1}`;turretElevation.add(barrel);
+    const barrel=new THREE.Group();barrel.name=`main-gun-${i+1}`;barrel.userData={weaponRole:'main',barrelIndex:i,purchased:i===0};turretElevation.add(barrel);
     const breech=cylinder(barrel,.7,.82,2,0,0,-.3,darkSteel,20);breech.rotation.x=-Math.PI/2;
-    const tube=cylinder(barrel,.4,.65,12.1,0,0,-6.8,steel,28);tube.rotation.x=-Math.PI/2;
+    const tube=cylinder(barrel,.4,.65,12.1,0,0,-6.8,steel,28);tube.rotation.x=-Math.PI/2;tube.name=`main-gun-tube-${i+1}`;tube.userData={weaponRole:'main',barrelIndex:i};
     for(const [z,r] of [[-1.5,.68],[-3,.6],[-5.5,.53],[-8.8,.47],[-12.5,.42]])ring(barrel,r,.065,0,0,z,edgeSteel);
     ring(barrel,.43,.105,0,0,-13,edgeSteel);const muzzle=mesh(new THREE.CircleGeometry(.33,20),black,barrel,0,0,-13.12);muzzle.rotation.y=Math.PI;
     for(const side of [-1,1]){const piston=cylinder(barrel,.12,.15,3,side*.68,-.42,-1.7,edgeSteel,10);piston.rotation.x=-Math.PI/2;}
+    const powerBands=[];
+    for(const [level,z,radius] of [[1,-1.8,.72],[2,-3.8,.64],[3,-6.3,.56]]){
+      const jacket=cylinder(barrel,radius,radius+.025,.87,0,0,z,darkSteel,8);jacket.rotation.x=-Math.PI/2;jacket.name=`gun-${i+1}-power-${level}`;jacket.visible=false;powerBands.push(jacket);
+    }
+    const feedCase=armoredPrism(barrel,.95,.32,2.5,0,-.72,-.05,darkSteel,.025);feedCase.name=`gun-${i+1}-feed-mechanism`;feedCase.visible=false;
     const reactorMat=new THREE.MeshBasicMaterial({color:0x66dfff,transparent:true,opacity:.9});
     ownedMaterials.push(reactorMat);
     const reactor=mesh(new THREE.CircleGeometry(.26,20),reactorMat,barrel,0,0,-13.14);reactor.rotation.y=Math.PI;reactor.visible=false;
     const flash=new THREE.PointLight(0xffba64,0,32,2);flash.position.set(0,0,MUZZLE_Z);barrel.add(flash);
-    guns.push({base:batteryMount,swivel:turretYaw,pitch:turretElevation,barrel,flash,reactor,cooldown:0,recoil:0,index:i});
+    guns.push({base:batteryMount,swivel:turretYaw,pitch:turretElevation,barrel,flash,reactor,tube,powerBands,feedCase,cooldown:0,recoil:0,index:i});
   }
+  // Shape/Extrude UVs otherwise contain metre-sized coordinates. Project them
+  // into a bounded panel/deck range so external bitmap tiles do not shimmer.
+  const normalizedGeometries=new Set();
+  ship.traverse(object=>{
+    const geometry=object.geometry;if(!geometry||normalizedGeometries.has(geometry)||(!['ShapeGeometry','ExtrudeGeometry'].includes(geometry.type)&&!(object.material===wood&&geometry.type==='BoxGeometry')))return;
+    normalizedGeometries.add(geometry);geometry.computeBoundingBox();
+    const min=geometry.boundingBox.min,size=geometry.boundingBox.getSize(new THREE.Vector3()),p=geometry.getAttribute('position'),n=geometry.getAttribute('normal'),uv=[];
+    const ratio=(value,offset,extent)=>(value-offset)/Math.max(.001,extent);
+    for(let i=0;i<p.count;i++){
+      if(object.material===wood){
+        if(Math.abs(n?.getZ(i)||0)>.70&&geometry.type!=='BoxGeometry')uv.push((p.getX(i)-min.x)/7.8,(p.getY(i)-min.y)/18);
+        else uv.push((p.getX(i)-min.x)/7.8,(p.getZ(i)-min.z)/18);
+      }
+      else if(Math.abs(n?.getZ(i)||0)>.70)uv.push(ratio(p.getX(i),min.x,size.x),ratio(p.getY(i),min.y,size.y));
+      else if(Math.abs(n?.getY(i)||0)>.70)uv.push(ratio(p.getX(i),min.x,size.x),ratio(p.getZ(i),min.z,size.z));
+      else uv.push(ratio(p.getY(i),min.y,size.y),ratio(p.getZ(i),min.z,size.z));
+    }
+    geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  });
   ship.userData.dimensions={width:22.4,length:133,bow:-42,stern:91};
   let hullMode='battleship',capacityLevel=0;
   function setHullMode(mode='battleship',capacity=0,levels={},loadout={}) {
     hullMode=mode==='hybrid'?'hybrid':'battleship';capacityLevel=Math.max(0,Math.min(5,Math.floor(Number(capacity)||0)));
-    const hybrid=hullMode==='hybrid';standardAft.visible=!hybrid;hybridForeTurret.visible=hybrid;aviation.group.visible=hybrid;
+    const hybrid=hullMode==='hybrid';standardAft.visible=!hybrid;hybridForeTurret.visible=false;aftTurret.visible=false;aviation.group.visible=hybrid;
     funnels[0].position.z=hybrid?41.1:50;funnels[1].position.z=hybrid?46.0:64;
     const deckState=aviation.configure(capacityLevel,levels,loadout);
     ship.userData.hullMode=hullMode;ship.userData.aviation={...deckState};
@@ -158,6 +191,38 @@ export function buildFlagship(kit) {
   function getDeckPose() {
     return {launchOrigin:new THREE.Vector3(0,9,65),landingOrigin:new THREE.Vector3(0,9,82),elevatorPos:new THREE.Vector3(7.55,8.75,68.5),mode:hullMode,capacityLevel};
   }
+  function setBatteryCount(count=1,gunLevels=[]){
+    const installed=Math.max(1,Math.min(4,Math.floor(Number(count)||1)));
+    guns.forEach((gun,i)=>{
+      const level=gunLevels?.[i]||{},power=Math.max(0,Math.min(3,Number(level.power)||0)),reload=Math.max(0,Math.min(3,Number(level.reload)||0));
+      gun.barrel.visible=i<installed;gun.barrel.userData.purchased=i<installed;
+      gun.barrel.position.x=(i-(installed-1)/2)*(installed===4?2.05:2.3);gun.barrel.scale.setScalar(1+.035*power);
+      gun.powerBands.forEach((band,j)=>{band.visible=power>=j+1;});gun.feedCase.visible=reload>0;gun.feedCase.scale.z=1+reload*.18;
+    });
+    ship.userData.armedGunCount=installed;return installed;
+  }
+  function setEquipmentVisuals(state={}){
+    const source=state&&typeof state==='object'?state:{},installed=Array.isArray(source.guns)&&source.guns.length?source.guns:[{}],upgrades=source.upgrades||{};
+    const count=setBatteryCount(installed.length,installed),armor=Math.max(0,Math.min(3,Number(upgrades.armor)||0));
+    armorBelts.forEach((belt,i)=>{belt.visible=armor>=i+1;});
+    ship.userData.visualEquipment={gunCount:count,armorLevel:armor,radarLevel:Number(upgrades.radar)||0,aaLevel:Number(upgrades.aa)||0};
+    return {...ship.userData.visualEquipment};
+  }
+  function setSurfaceMaps(maps={}){
+    const source=maps&&typeof maps==='object'?maps:{};
+    for(const material of [steel,darkSteel,edgeSteel]){
+      if(source.steel?.isTexture)material.map=source.steel;
+      if(source.bump?.isTexture){material.bumpMap=source.bump;material.bumpScale=.026;}
+      material.needsUpdate=true;
+    }
+    if(source.steel?.isTexture){steel.color.setHex(0xf1f4f4);darkSteel.color.setHex(0xc4ccce);edgeSteel.color.setHex(0xffffff);}
+    if(source.wood?.isTexture){wood.map=source.wood;wood.color.setHex(0xfff7e8);wood.needsUpdate=true;}
+    // Supplied textures are owned by the caller. The original fallback maps
+    // remain listed here so they can be disposed independently at teardown.
+    ship.userData.surfaceMaps={steel:steel.map?.uuid,wood:wood.map?.uuid};
+    return {...ship.userData.surfaceMaps};
+  }
   setHullMode();
-  return {ship,guns,batteryMount,turretYaw,turretElevation,MUZZLE_Z,setHullMode,getDeckPose,aviationDeck:aviation.group,ownedMaterials,ownedTextures};
+  setEquipmentVisuals();
+  return {ship,guns,batteryMount,turretYaw,turretElevation,MUZZLE_Z,setHullMode,getDeckPose,setBatteryCount,setEquipmentVisuals,setSurfaceMaps,aviationDeck:aviation.group,ownedMaterials,ownedTextures};
 }

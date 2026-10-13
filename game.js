@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { CannonAudio } from './audio.js?v=asahi-v7.0';
-import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore, AIRCRAFT_TYPES, AVIATION_CONVERSION, aviationStats } from './campaign.js?v=asahi-v7.0';
-import { createWarship } from './enemies.js?v=asahi-v7.0';
-import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v7.0';
-import { Battlefield } from './battlefield.js?v=asahi-v7.0';
-import { buildFlagship } from './flagship.js?v=asahi-v7.0';
-import { NavalAviation } from './aviation.js?v=asahi-v7.0';
+import { CannonAudio } from './audio.js?v=asahi-v8.0';
+import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore, AIRCRAFT_TYPES, AVIATION_CONVERSION, aviationStats } from './campaign.js?v=asahi-v8.0';
+import { createWarship } from './enemies.js?v=asahi-v8.0';
+import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v8.0';
+import { Battlefield } from './battlefield.js?v=asahi-v8.0';
+import { buildFlagship } from './flagship.js?v=asahi-v8.0';
+import { NavalAviation } from './aviation.js?v=asahi-v8.0';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -35,8 +35,8 @@ const sun = new THREE.DirectionalLight(0xffe4bd, 3.0);
 sun.position.copy(sunDirection).multiplyScalar(150);
 sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024);
-sun.shadow.camera.left = -28; sun.shadow.camera.right = 28;
-sun.shadow.camera.top = 36; sun.shadow.camera.bottom = -25;
+sun.shadow.camera.left = -85; sun.shadow.camera.right = 85;
+sun.shadow.camera.top = 95; sun.shadow.camera.bottom = -75;
 sun.shadow.camera.near = 1; sun.shadow.camera.far = 250;
 sun.shadow.bias = -.0006; sun.shadow.normalBias = .045;
 scene.add(sun);scene.add(sun.target);
@@ -112,7 +112,23 @@ function box(parent,w,h,d,x,y,z,mat=steel){return mesh(new THREE.BoxGeometry(w,h
 function cylinder(parent,rt,rb,h,x,y,z,mat=steel,segments=24){return mesh(new THREE.CylinderGeometry(rt,rb,h,segments),mat,parent,x,y,z);}
 function ring(parent,r,t,x,y,z,mat=edgeSteel){return mesh(new THREE.TorusGeometry(r,t,8,32),mat,parent,x,y,z);}
 const kit={THREE,steel,darkSteel,edgeSteel,deckMat,wood,black,bronze,box,cylinder,ring,mesh};
-const {ship,guns,batteryMount,turretYaw,turretElevation,MUZZLE_Z,setHullMode,getDeckPose}=buildFlagship(kit);scene.add(ship);
+const {ship,guns,batteryMount,turretYaw,turretElevation,MUZZLE_Z,setHullMode,getDeckPose,setEquipmentVisuals,setSurfaceMaps}=buildFlagship(kit);scene.add(ship);
+// Painted steel and teak are actual hull materials, rather than a picture over the game.
+const illustratedTextures=[];
+if(typeof Image!=='undefined'){
+  const loader=new THREE.TextureLoader();
+  const surface=(file)=>new Promise(resolve=>loader.load(new URL(`./assets/${file}`,import.meta.url).href,texture=>{
+    texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=texture.wrapT=THREE.RepeatWrapping;
+    texture.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());illustratedTextures.push(texture);resolve(texture);
+  },undefined,()=>resolve(null)));
+  Promise.all([surface('naval-steel-v8.png'),surface('naval-teak-v8.png')]).then(([steelMap,teakMap])=>{
+    if(steelMap)for(const [material,color] of [[steel,0xe0e6e7],[darkSteel,0xaebbc0],[edgeSteel,0xf3f2e9],[deckMat,0xaeb7b6]]){
+      material.map=steelMap;material.color.setHex(color);material.metalness=.24;material.roughness=.68;material.needsUpdate=true;
+    }
+    if(teakMap){wood.map=teakMap;wood.color.setHex(0xf1e7cf);wood.roughness=.87;wood.needsUpdate=true;}
+    setSurfaceMaps({steel:steelMap,wood:teakMap,bump:bumpMap});
+  });
+}
 const smokeTex=canvasTexture((ctx,s)=>{const g=ctx.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);g.addColorStop(0,'rgba(239,233,215,.9)');g.addColorStop(.25,'rgba(202,207,202,.65)');g.addColorStop(.6,'rgba(171,181,183,.28)');g.addColorStop(1,'rgba(150,170,178,0)');ctx.fillStyle=g;ctx.fillRect(0,0,s,s);},64);
 const flameTex=canvasTexture((ctx,s)=>{const g=ctx.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);g.addColorStop(0,'rgba(255,255,231,1)');g.addColorStop(.18,'rgba(255,232,131,1)');g.addColorStop(.38,'rgba(255,152,36,.8)');g.addColorStop(.7,'rgba(208,74,5,.3)');g.addColorStop(1,'rgba(135,25,0,0)');ctx.fillStyle=g;ctx.fillRect(0,0,s,s);},64);
 const effects=[],shots=[],enemies=[];
@@ -171,6 +187,7 @@ const aviation=new NavalAviation({scene,getState:()=>campaign.state.aviation,get
 function syncGunLoadout(){
   const count=campaign.gunCount();selected=clamp(selected,0,count-1);
   guns.forEach((g,i)=>{g.barrel.visible=i<count;g.barrel.position.x=(i-(count-1)/2)*(count===4?2.05:2.3);g.barrel.scale.setScalar(1+.035*gunLoadout(i).power);});
+  setEquipmentVisuals(campaign.state);
 }
 function syncAuxiliary(){
   syncGunLoadout();
@@ -188,7 +205,27 @@ function setScreen(mode){
   if(mode==='review'&&reviewReturn==='result')setHullMode(a.hullMode,a.capacityLevel,a.levels,aviation.stats.roles);
 }
 function updateSaveSummary(){
-  $('saveSummary').textContent=`全5部 · 制圧 ${campaign.state.conquered.length} / ${AREAS.length}海域 · 保有 ${campaign.state.credits.toLocaleString()} C`;
+  const state=campaign.state;
+  const ongoing=state.conquered.length>0||state.unlockedArea>1||campaign.gunCount()>1||state.aviation.converted||Object.values(state.upgrades).some(n=>n>0)||state.guns.some(g=>g.weapon||g.power||g.reload)||state.credits!==1200||state.stock.shell!==180||state.hull<100;
+  $('startButton').textContent=ongoing?'この航海を続ける →':'通常戦艦・主砲1門で出航 →';
+  $('newVoyageButton').classList.toggle('hidden',!ongoing);
+  $('saveSummary').textContent=`現在の記録：${state.aviation.hullMode==='hybrid'?'航空戦艦':'通常戦艦'}・主砲${campaign.gunCount()}門 · 制圧 ${state.conquered.length}/${AREAS.length} · ${state.credits.toLocaleString()} C`;
+}
+function renderVoyageHistory(){
+  const entries=campaign.archivedCampaigns();
+  const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  $('voyageList').innerHTML=entries.length?entries.map(entry=>`<article class="voyage-entry"><div><strong>${entry.hullMode==='hybrid'?'航空戦艦':'通常戦艦'} · 主砲${entry.gunCount}門 · 制圧${entry.conquered}海域</strong><small>${escape(entry.date)} · ${entry.credits.toLocaleString()} C</small></div><button data-restore-voyage="${escape(entry.id)}">この航海に戻る</button></article>`).join(''):'<p class="voyage-empty">保存された以前の航海はありません。</p>';
+}
+function applyVoyageResult(result){
+  if(!result.ok){$('startMessage').textContent=result.reason;$('voyageMessage').textContent=result.reason;return false;}
+  cleanupBattle();finished=true;started=true;holdFire=false;aimPointer=null;keys.clear();salvoQueue=[];charge=null;
+  reviewActive=reviewPending=false;selected=0;kills=0;wave=0;lastResult=null;
+  activeArea=chosenArea=clamp(campaign.state.unlockedArea,1,AREAS.length);worldPart=AREAS[chosenArea-1].part;mapZoom='world';
+  maxHP=100+campaign.state.upgrades.armor*30;hp=maxHP*campaign.state.hull/100;zones={...campaign.state.damageZones};
+  stats={shots:0,hits:0,kills:0,killScore:0,time:0,hull:campaign.state.hull,airKills:0,airScore:0};
+  for(const gun of guns){gun.cooldown=0;gun.recoil=0;}maneuver.position.set(0,0,0);maneuver.velocity.set(0,0,0);
+  syncAuxiliary();syncDamageVisual();updateHullHUD();$('voyagePanel').classList.add('hidden');openHarbor('map');
+  $('shopMessage').textContent=result.reason;updateSaveSummary();audio.unlock();return true;
 }
 const supplyNames={shell:'主砲弾',aa:'対空弾',asw:'対潜弾',dragon:'龍神弾',fuel:'燃料',aviation:'航空弾'};
 function renderWorldMap(){
@@ -373,7 +410,7 @@ function beginAssault(){
   yaw=0;pitch=-.045;toast('上陸支援開始！ 到着までに岸砲台・戦車・航空基地を制圧せよ',3);audio.morse('LAND');
 }
 function updateCamera(){
-  sky.position.copy(maneuver.position);water.position.x=maneuver.position.x;water.position.z=maneuver.position.z;waterMat.uniforms.shipXZ.value.set(maneuver.position.x,maneuver.position.z);waterMat.uniforms.shipSpeed.value=maneuver.velocity.length();sun.position.copy(sunDirection).multiplyScalar(150).add(maneuver.position);sun.target.position.copy(maneuver.position);
+  sky.position.copy(maneuver.position);water.position.x=maneuver.position.x;water.position.z=maneuver.position.z;waterMat.uniforms.shipXZ.value.set(maneuver.position.x,maneuver.position.z);waterMat.uniforms.shipSpeed.value=maneuver.velocity.length();sun.position.copy(sunDirection).multiplyScalar(150).add(maneuver.position);sun.target.position.copy(maneuver.position).z+=25;
   const sea=weather.seaState||.35,roll=Math.sin(elapsed*.91)*.012*sea+Math.sin(elapsed*1.83)*.006*sea+maneuver.rollKick;
   const heave=Math.sin(elapsed*.76)*(.12+sea*.3),swell=Math.sin(elapsed*.62)*.01*sea+maneuver.pitchKick;
   ship.position.copy(maneuver.position);ship.position.y=heave;ship.rotation.set(swell,maneuver.evading?maneuver.side*.1*Math.sin(maneuver.evadeTimer):0,roll);
@@ -686,6 +723,11 @@ function setPause(value){
 }
 async function start(){const promise=audio.unlock();started=true;chosenArea=clamp(campaign.state.unlockedArea,1,AREAS.length);openHarbor('map');await promise;}
 $('startButton').addEventListener('click',start);
+$('newVoyageButton').addEventListener('click',()=>applyVoyageResult(campaign.newCampaign()));
+$('voyageMenu').addEventListener('click',()=>{renderVoyageHistory();$('voyageMessage').textContent='';$('voyagePanel').classList.remove('hidden');});
+$('closeVoyage').addEventListener('click',()=>{$('voyagePanel').classList.add('hidden');});
+$('voyageFreshButton').addEventListener('click',()=>applyVoyageResult(campaign.newCampaign()));
+$('voyageList').addEventListener('click',e=>{const button=e.target.closest('button[data-restore-voyage]');if(button)applyVoyageResult(campaign.restoreCampaign(button.dataset.restoreVoyage));});
 $('mapWorld').addEventListener('click',()=>{mapZoom='world';renderWorldMap();});$('mapPart').addEventListener('click',()=>{mapZoom='part';renderWorldMap();});
 $('repair').addEventListener('click',()=>{const result=campaign.repairHull();zones={...campaign.state.damageZones};hp=maxHP*campaign.state.hull/100;renderHarbor();$('shopMessage').textContent=result.reason;audio.unlock();if(result.ok)audio.morse('OK');});
 $('portInspect').addEventListener('click',inspectHull);$('aviationInspect').addEventListener('click',inspectHull);$('skipReview').addEventListener('click',showResult);

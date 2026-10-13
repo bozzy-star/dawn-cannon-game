@@ -247,7 +247,7 @@ export function aviationStats(kind,level=0){
   const tier=AIRCRAFT_TYPES[kind].tiers[integer(level,0,5)];
   return {...tier};
 }
-export const AVIATION_CONVERSION=freeze({kind:'conversion',name:'航空戦艦改装',description:'4門までの主砲と既存兵装を保持し、飛行甲板と6機の初期航空隊を追加。通常戦艦へ無料で切り替え可能。航空弾150単位を一度だけ受領する。',price:1800,unlockArea:3});
+export const AVIATION_CONVERSION=freeze({kind:'conversion',name:'航空戦艦改装',description:'通常戦艦で第一部を制圧した後に改装。4門までの主砲と既存兵装を保持し、飛行甲板と6機の初期航空隊を追加。通常戦艦へ無料で切り替え可能。航空弾150単位を一度だけ受領する。',price:1800,unlockArea:7});
 export const AIRCRAFT_CAPACITIES=freeze([6,12,24,36,60]);
 export const AVIATION_CAPACITY_UPGRADES=freeze([
   {kind:'capacity',level:1,name:'格納庫 I・12機',description:'最大搭載数を12機へ拡張。増えた枠は航空隊配分で割り当てる。',capacity:12,price:900,unlockArea:7},
@@ -274,6 +274,10 @@ export const GUN_EXPANSIONS = freeze([
 
 const SAVE_KEY = 'asahi-cannon-campaign-v2';
 const LEGACY_SAVE_KEY = 'asahi-cannon-campaign-v1';
+const CAMPAIGN_ARCHIVE_KEY = 'asahi-cannon-campaign-archives-v1';
+// v7 permitted conversion from area 3. Moving the purchase milestone must
+// never revoke a returning captain's already purchased hull and aircraft.
+const SAVED_AVIATION_UNLOCK_AREA = 3;
 const KINDS = Object.keys(UPGRADES);
 const SUPPLY_KINDS = Object.keys(CONSUMABLES);
 const GUN_FIELDS = {weapon:'weapon',gunPower:'power',reload:'reload'};
@@ -363,7 +367,7 @@ function validateState(source) {
   }
   if(source.version>=5&&objectLike(source.aviation)){
     const original=source.aviation,aviation=state.aviation;
-    aviation.converted=original.converted===true&&state.unlockedArea>=AVIATION_CONVERSION.unlockArea;
+    aviation.converted=original.converted===true&&state.unlockedArea>=SAVED_AVIATION_UNLOCK_AREA;
     aviation.hullMode=aviation.converted&&original.hullMode==='hybrid'?'hybrid':'battleship';
     if(aviation.converted){
       let capacityLevel=integer(original.capacityLevel,0,AVIATION_CAPACITY_UPGRADES.length);
@@ -403,6 +407,8 @@ export class CampaignStore {
   constructor(storage) {
     this.storage = null;
     this._state = freshState();
+    this._memoryArchives = [];
+    this._archiveSequence = 0;
     try {
       this.storage = storage === undefined ? globalThis.localStorage : storage;
       const saved = this.storage?.getItem(SAVE_KEY) || this.storage?.getItem(LEGACY_SAVE_KEY);
@@ -419,6 +425,85 @@ export class CampaignStore {
     this._state = validateState(this._state);
     try { this.storage?.setItem(SAVE_KEY,JSON.stringify(this._state)); } catch { /* Storage can be unavailable. */ }
   }
+
+  _readCampaignArchives() {
+    if(!this.storage)return this._memoryArchives.slice();
+    const saved=this.storage.getItem(CAMPAIGN_ARCHIVE_KEY);
+    if(!saved)return [];
+    const decoded=JSON.parse(saved);
+    if(!objectLike(decoded)||decoded.version!==1||!Array.isArray(decoded.campaigns))throw new Error('Unsupported campaign archive');
+    return decoded.campaigns;
+  }
+
+  _archiveSummary(entry) {
+    if(!objectLike(entry)||typeof entry.id!=='string'||!objectLike(entry.state)||![1,2,3,4,5].includes(entry.state.version))return null;
+    const state=validateState(entry.state),date=typeof entry.date==='string'?entry.date:'';
+    const hullMode=state.aviation.hullMode;
+    return {id:entry.id,date,createdAt:date,label:`${date.replace('T',' ').slice(0,16)} / 制圧${state.conquered.length}海域 / 主砲${state.guns.length}門 / ${hullMode==='hybrid'?'航空戦艦':'通常戦艦'}`,
+      gunCount:state.guns.length,hullMode,conquered:state.conquered.length,conqueredAreas:state.conquered.slice(),unlockedArea:state.unlockedArea,credits:state.credits,hull:state.hull};
+  }
+
+  archivedCampaigns() {
+    try { return this._readCampaignArchives().map(entry=>this._archiveSummary(entry)).filter(Boolean).reverse(); }
+    catch { return []; }
+  }
+
+  archiveCurrent() {
+    try {
+      const archives=this._readCampaignArchives();
+      let id;
+      do { id=`${Date.now().toString(36)}-${archives.length.toString(36)}-${(++this._archiveSequence).toString(36)}`; }
+      while(archives.some(entry=>entry?.id===id));
+      const entry={id,date:new Date().toISOString(),state:JSON.parse(JSON.stringify(this._state))};
+      const next=archives.concat(entry);
+      // A failed archive write must never allow a new voyage to overwrite the
+      // current captain. Keep every prior entry; quota failures are recoverable.
+      if(this.storage)this.storage.setItem(CAMPAIGN_ARCHIVE_KEY,JSON.stringify({version:1,campaigns:next}));
+      this._memoryArchives=next;
+      const archive=this._archiveSummary(entry);
+      return {ok:true,reason:'現在の航海を履歴に保存しました。いつでも復帰できます。',id,archive};
+    } catch {
+      return {ok:false,reason:'航海の履歴を保存できません。現在の作戦は変更していません。ブラウザの保存領域を確認してください。'};
+    }
+  }
+
+  _switchCampaign(nextState) {
+    const next=validateState(nextState);
+    try {
+      // Save before changing the live state. Unlike routine autosave, an
+      // explicit campaign switch reports failure and preserves the current run.
+      if(this.storage)this.storage.setItem(SAVE_KEY,JSON.stringify(next));
+      this._state=next;
+      return {ok:true,state:this._state};
+    } catch {
+      return {ok:false,reason:'航海の切り替えを保存できません。現在の作戦は変更していません。保存済みの履歴も残っています。'};
+    }
+  }
+
+  newCampaign() {
+    let archivedId=null;
+    if(JSON.stringify(validateState(this._state))!==JSON.stringify(freshState())){
+      const archived=this.archiveCurrent();
+      if(!archived.ok)return archived;
+      archivedId=archived.id;
+    }
+    const switched=this._switchCampaign(freshState());
+    if(!switched.ok)return {...switched,archivedId};
+    return {...switched,archivedId,reason:archivedId?'前の航海を履歴に保存し、通常戦艦・主砲1門で新しい航海を始めました。':'通常戦艦・主砲1門で新しい航海を始めました。'};
+  }
+
+  restoreCampaign(id) {
+    let entry;
+    try { entry=this._readCampaignArchives().find(value=>value?.id===id); }
+    catch { return {ok:false,reason:'航海の履歴を読み込めません。現在の作戦は変更していません。'}; }
+    if(typeof id!=='string'||!entry||!this._archiveSummary(entry))return {ok:false,reason:'指定した航海の履歴が見つかりません。現在の作戦は変更していません。'};
+    const archived=this.archiveCurrent();
+    if(!archived.ok)return archived;
+    const switched=this._switchCampaign(entry.state);
+    if(!switched.ok)return {...switched,archivedId:archived.id};
+    return {...switched,restoredId:id,archivedId:archived.id,reason:'選んだ航海へ復帰しました。切り替え前の航海も履歴に保存しています。'};
+  }
+
   get nextUpgradeKinds() { return KINDS.slice(); }
   nextUpgrade(kind) {
     if(own(GUN_FIELDS,kind))return this.nextGunUpgrade(0,kind);
@@ -503,7 +588,7 @@ export class CampaignStore {
   convertAviation() {
     const upgrade={...AVIATION_CONVERSION};
     if(this._state.aviation.converted)return {ok:false,reason:'航空戦艦改装は完了しています。船体形式は無料で切り替えられます。',upgrade};
-    if(this._state.unlockedArea<upgrade.unlockArea)return {ok:false,reason:`第${upgrade.unlockArea}海域の解放後に航空戦艦へ改装できます。`,upgrade};
+    if(this._state.unlockedArea<upgrade.unlockArea)return {ok:false,reason:`通常戦艦で第一部を制圧し、第${upgrade.unlockArea}海域を解放すると航空戦艦へ改装できます。`,upgrade};
     if(this._state.credits<upgrade.price)return {ok:false,reason:`航空戦艦改装には${upgrade.price} C必要です。必須兵装・補給・修理の資金も確保してください。`,upgrade};
     this._state.credits-=upgrade.price;
     this._state.aviation.converted=true;this._state.aviation.hullMode='hybrid';

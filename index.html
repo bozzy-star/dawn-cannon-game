@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#111b21">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>弩級戦艦 朝日 | 航空戦艦と艦隊戦</title>
-<link rel="stylesheet" href="./style.css?v=asahi-v7.0">
+<title>弩級戦艦 朝日 | 一門から育てる戦艦</title>
+<link rel="stylesheet" href="./style.css?v=asahi-v8.0">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
 </head>
 <body>
@@ -45,9 +45,10 @@
 <div class="trigger"><button id="special" disabled><span>全主砲連結</span><b>龍神砲</b><small>未装備</small></button><button id="salvo"><span>3門</span><b>斉射</b></button><button id="fire"><small>主砲</small><b>発射</b><span>長押しで連続</span></button></div>
 </div>
 <section id="start" class="overlay">
-<div class="intro"><small class="eyebrow">ASAHI / AVIATION BATTLESHIP · v7</small><h1>弩級戦艦<span>朝日</span></h1><p class="lead">主砲と航空隊で、蒼環洋を切り開け。</p>
-<div class="instructions"><span><b>01</b>主砲を1門から4門へ増設、海上の艦隊を撃破</span><span><b>02</b>自動高角砲・旋回・対潜兵器で攻撃をしのぐ</span><span><b>03</b>補給と修理を整え、全5部・35海域を制圧</span></div>
-<button id="startButton">作戦地図を開く <span>→</span></button><p id="saveSummary" class="save-summary"></p><p class="note">港の「艦体改装」で航空戦艦へ · 新しい艦容イラスト<br>スマホは横向き推奨 · 音あり<br>PC：ドラッグ照準 / Space 発射 / F 斉射 / G 龍神砲<br>Q・E 旋回 / X 増速 / 高角砲は自動<br>V ソナー / H 対潜 / R 接触 / C 航空隊 / 1–4 主砲</p></div>
+<div class="intro"><small class="eyebrow">ASAHI / ONE GUN, A LONG VOYAGE · v8</small><h1>弩級戦艦<span>朝日</span></h1><p class="lead">一門の主砲から、海を切り開け。</p>
+<p class="starting-hull">新規開始：通常戦艦・主砲1門・航空隊なし</p>
+<div class="instructions"><span><b>01</b>通常戦艦で出航し、主砲を1門から4門へ強化</span><span><b>02</b>自動高角砲・旋回・対潜兵器を購入して育成</span><span><b>03</b>第一部の制圧後、港で航空戦艦への改装を解放</span></div>
+<button id="startButton">通常戦艦・主砲1門で出航 →</button><button id="newVoyageButton" class="secondary hidden">通常戦艦・主砲1門で新しい航海</button><p id="saveSummary" class="save-summary"></p><p id="startMessage" role="status"></p><p class="note">航空戦艦と航空隊は、海域を進めてから購入する強化です。<br>スマホは横向き推奨 · 音あり<br>PC：ドラッグ照準 / Space 発射 / F 斉射 / G 龍神砲<br>Q・E 旋回 / X 増速 / 高角砲は自動<br>V ソナー / H 対潜 / R 接触 / C 航空隊 / 1–4 主砲</p></div>
 </section>
 <section id="pausePanel" class="overlay hidden"><div class="dialog"><small>ASAHI</small><h2>一時停止</h2><button id="resume">戦闘に戻る</button><button class="secondary" id="restartPause">この海域を再挑戦</button><button class="secondary" id="toHarborPause">戦闘を中断して港へ</button></div></section>
 <section id="reviewPanel" class="review-panel hidden" aria-label="制圧後の船体確認"><div><small>AREA SECURED</small><h2>朝日、海域制圧。</h2><p>上空から船体と損傷を確認しています</p></div><button id="skipReview">戦績を見る →</button></section>
@@ -64,13 +65,14 @@
 <div class="aviation-heading"><div><small>HULL REFIT / AIR WING</small><h3>主砲を残し、航空隊を載せる。</h3><p>迎撃機で敵機を阻止、爆撃機で艦と基地を攻撃、戦闘機で両方を支援。機種ごとにレシプロから最新世代ステルスへ強化できます。</p></div><button id="aviationInspect" class="secondary">現在の3D船体を見る</button></div>
 <div id="aviationConversion"></div><div id="aviationCapacity"></div><div id="aviationCards" class="aviation-cards"></div>
 <section class="air-allocation"><header><h3>搭載航空隊の編成</h3><strong id="airAllocationSummary"></strong><button id="autoAirLoadout">搭載枠を均等に配分</button></header><div id="airAllocation"></div><p>編成は港で変更できます。搭載枠を増やした後は機数も配分してください。1機の発艦に燃料15、攻撃1回に航空弾5を使用。迎撃・爆撃・帰艦は自動で、1機が最大3回攻撃して再装填します。撃墜された機体はその出撃中には戻りません。</p></section>
-<p class="shop-note">航空戦艦への改装は第3海域の解放後。改装後も主砲1～4門の兵装はそのまま使えます。標準戦艦へ戻しても、購入した航空設備と機体強化は保存されます。潜水艦には従来のソナーと対潜兵装を準備してください。</p>
+<p class="shop-note">新規の航空戦艦改装は第一部の制圧後、第7海域の解放時に購入できます。序盤は通常戦艦を強化して進みます。改装後も主砲1～4門の兵装はそのまま使えます。標準戦艦へ戻しても、購入した航空設備と機体強化は保存されます。潜水艦には従来のソナーと対潜兵装を準備してください。</p>
 </div>
 <div id="supplyView" class="hidden"><p class="shop-note">主砲弾・対空弾・対潜弾・龍神弾は1射で5単位、斉射は装備中の1門につき5単位。通常航行の燃料は毎秒5、回避でも追加消費します。長い作戦には積載量を増やし、弾薬・燃料切れによる撤退を防いでください。</p><div id="supplyCards" class="shop-cards"></div><div class="emergency-supply"><button id="emergencySupply">緊急復帰を受ける</button><p id="emergencyStatus"></p></div></div>
-<div id="shopMessage" role="status"></div><footer class="harbor-foot"><span><b class="version-badge">v7 · 航空戦艦</b> <span id="saveStatus">進行・装備・補給・船体状態はこのブラウザに保存されます</span></span><button id="resetProgress">進行をリセット</button></footer></div></section>
+<div id="shopMessage" role="status"></div><footer class="harbor-foot"><span><b class="version-badge">v8 · 一門から育てる戦艦</b> <span id="saveStatus">進行・装備・補給・船体状態はこのブラウザに保存されます</span></span><button id="voyageMenu">航海の記録</button><button id="resetProgress">進行をリセット</button></footer></div></section>
+<section id="voyagePanel" class="overlay hidden"><div class="dialog voyage-dialog"><small>VOYAGE LOG</small><h2>航海の記録</h2><p>新しい航海は通常戦艦・主砲1門から。現在の作戦を保存して切り替えるので、以前の装備と進行へ戻せます。</p><div id="voyageList"></div><p id="voyageMessage" role="status"></p><button id="voyageFreshButton">通常戦艦・主砲1門で新しい航海</button><button id="closeVoyage" class="secondary">港に戻る</button></div></section>
 <section id="resetConfirm" class="overlay hidden"><div class="dialog"><small>NEW CAMPAIGN</small><h2>進行をリセット</h2><p>制圧済みの海域・資金・購入した装備を初期状態に戻します。</p><button id="cancelReset">戻る</button><button class="secondary" id="confirmReset">進行を削除して最初から</button></div></section>
 <div id="rotate"><span>↻</span><p>スマホを横向きにすると<br>海上の敵を見渡して遊べます</p></div>
 <div id="loading">海域を準備しています…</div>
 </main>
-<script type="module" src="./game.js?v=asahi-v7.0"></script>
+<script type="module" src="./game.js?v=asahi-v8.0"></script>
 </body></html>
