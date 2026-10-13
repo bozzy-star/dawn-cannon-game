@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#111b21">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>弩級戦艦 朝日 | 艦隊戦と上陸支援</title>
-<link rel="stylesheet" href="./style.css?v=asahi-v6.4">
+<title>弩級戦艦 朝日 | 航空戦艦と艦隊戦</title>
+<link rel="stylesheet" href="./style.css?v=asahi-v7.0">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
 </head>
 <body>
@@ -33,6 +33,7 @@
 <div id="directTactical" role="group" aria-label="ソナーと対潜兵装">
 <button id="sonar">ソナー未装備</button><button id="contact">潜水接触を選ぶ</button><button id="asw">対潜未装備</button><label id="depthControl" class="hidden">深度 <select id="depth" aria-label="爆雷の投下深度"><option value="20">20m</option><option value="50" selected>50m</option><option value="100">100m</option><option value="150">150m</option></select></label><label id="rangeControl">射距離 <select id="rangeDial" aria-label="主砲の射撃距離"><option value="80">800m</option><option value="120">1200m</option><option value="180" selected>1800m</option><option value="260">2600m</option><option value="400">4000m</option><option value="600">6000m</option></select></label>
 </div></div>
+<div id="airWingControl" class="hidden"><button id="launchAir">航空隊発艦</button><small id="airWingStatus" role="status"></small></div>
 <div id="controls">
 <div class="battery"><small id="batteryLabel">主砲1門 / 順番発射</small><div class="gun-row">
 <button class="gun selected" data-gun="0"><b>01</b><span>装填完了</span><i></i></button>
@@ -44,9 +45,9 @@
 <div class="trigger"><button id="special" disabled><span>全主砲連結</span><b>龍神砲</b><small>未装備</small></button><button id="salvo"><span>3門</span><b>斉射</b></button><button id="fire"><small>主砲</small><b>発射</b><span>長押しで連続</span></button></div>
 </div>
 <section id="start" class="overlay">
-<div class="intro"><small class="eyebrow">ASAHI / FIVE CHAPTER CAMPAIGN</small><h1>弩級戦艦<span>朝日</span></h1><p class="lead">蒼環洋を越え、祖国の夜明けを取り戻せ。</p>
+<div class="intro"><small class="eyebrow">ASAHI / AVIATION BATTLESHIP · v7</small><h1>弩級戦艦<span>朝日</span></h1><p class="lead">主砲と航空隊で、蒼環洋を切り開け。</p>
 <div class="instructions"><span><b>01</b>主砲を1門から4門へ増設、海上の艦隊を撃破</span><span><b>02</b>自動高角砲・旋回・対潜兵器で攻撃をしのぐ</span><span><b>03</b>補給と修理を整え、全5部・35海域を制圧</span></div>
-<button id="startButton">作戦地図を開く <span>→</span></button><p id="saveSummary" class="save-summary"></p><p class="note">スマホは横向き推奨 · 音あり<br>PC：ドラッグ照準 / Space 発射 / F 斉射 / G 龍神砲<br>Q・E 旋回 / X 増速 / 高角砲は自動<br>V ソナー / H 対潜発射 / R 接触選択 / 1–4 次に撃つ砲を選択</p></div>
+<button id="startButton">作戦地図を開く <span>→</span></button><p id="saveSummary" class="save-summary"></p><p class="note">港の「艦体改装」で航空戦艦へ · 新しい艦容イラスト<br>スマホは横向き推奨 · 音あり<br>PC：ドラッグ照準 / Space 発射 / F 斉射 / G 龍神砲<br>Q・E 旋回 / X 増速 / 高角砲は自動<br>V ソナー / H 対潜 / R 接触 / C 航空隊 / 1–4 主砲</p></div>
 </section>
 <section id="pausePanel" class="overlay hidden"><div class="dialog"><small>ASAHI</small><h2>一時停止</h2><button id="resume">戦闘に戻る</button><button class="secondary" id="restartPause">この海域を再挑戦</button><button class="secondary" id="toHarborPause">戦闘を中断して港へ</button></div></section>
 <section id="reviewPanel" class="review-panel hidden" aria-label="制圧後の船体確認"><div><small>AREA SECURED</small><h2>朝日、海域制圧。</h2><p>上空から船体と損傷を確認しています</p></div><button id="skipReview">戦績を見る →</button></section>
@@ -54,15 +55,22 @@
 <section id="harbor" class="overlay hidden"><div class="harbor-panel">
 <header class="harbor-head"><div><small>ASAHI / NAVAL DOCK</small><h2>作戦海域・艦装整備</h2></div><div class="wallet"><small>保有資金</small><strong id="credits">0</strong></div></header>
 <div class="condition-bar"><div><span>整備状況</span><strong id="condition">100%</strong></div><button id="repair">船体を修理</button><p id="repairNote">船体の損傷は次の出撃にも残ります。</p><button id="portInspect" class="secondary">船体を見る</button></div>
-<nav class="harbor-tabs"><button id="mapTab" class="active">作戦地図</button><button id="shopTab">強化パーツ</button><button id="supplyTab">消耗品・補給</button></nav>
+<nav class="harbor-tabs"><button id="mapTab" class="active">作戦地図</button><button id="shopTab">強化パーツ</button><button id="aviationTab">艦体改装 <small>NEW</small></button><button id="supplyTab">消耗品・補給</button></nav>
 <div id="worldView"><div class="map-switch" role="group" aria-label="地図の表示範囲"><button id="mapWorld" class="active" aria-pressed="true">全体マップ</button><button id="mapPart" aria-pressed="false">各部を拡大</button></div><div id="worldMap"></div><div class="map-legend"><span>■ 暁和国</span><span>■ 制圧圏</span><span>● 未制圧</span><span>● 選択中</span></div><nav id="partTabs" class="part-tabs"></nav><p id="partStory"></p></div>
 <div id="mapView" class="harbor-body"><div id="mapList" class="map-list"></div><div class="area-detail"><small id="areaNumber"></small><h3 id="areaName"></h3><p id="briefing"></p><div id="enemyList" class="enemy-list"></div><div id="areaRecord" class="area-record"></div><div id="loadout" class="loadout"></div><p id="deploymentStatus"></p><button id="deploy">この海域へ出撃 →</button></div></div>
 <div id="shopView" class="harbor-body hidden"><div id="gunShopCards"></div><div id="shopCards" class="shop-cards"></div><p class="shop-note">赤いパーツは選択中の作戦に必須、金色は攻略におすすめです。主砲は1～4門。弾種・主砲機構・給弾を各門ごとに強化し、必須主砲と機構は同じ門に揃えます。装甲・燃料庫・スクリューは3段階。高角砲は常時自動、最終レーダーで管制迎撃。パッシブソナーON中は装填時間が2倍。龍神砲は蓄電槽で1出撃2回まで、1射で龍神弾5単位を使います。</p><button id="backToMap" class="secondary">作戦地図に戻る</button></div>
+<div id="aviationView" class="hidden">
+<figure class="aviation-hero"><img src="./assets/asahi-hybrid-v7.png" alt="前部の主砲と後部の飛行甲板を持つ航空戦艦朝日の新しい改装イラスト" loading="lazy"><figcaption>航空戦艦 朝日 · 改装イメージ</figcaption></figure>
+<div class="aviation-heading"><div><small>HULL REFIT / AIR WING</small><h3>主砲を残し、航空隊を載せる。</h3><p>迎撃機で敵機を阻止、爆撃機で艦と基地を攻撃、戦闘機で両方を支援。機種ごとにレシプロから最新世代ステルスへ強化できます。</p></div><button id="aviationInspect" class="secondary">現在の3D船体を見る</button></div>
+<div id="aviationConversion"></div><div id="aviationCapacity"></div><div id="aviationCards" class="aviation-cards"></div>
+<section class="air-allocation"><header><h3>搭載航空隊の編成</h3><strong id="airAllocationSummary"></strong><button id="autoAirLoadout">搭載枠を均等に配分</button></header><div id="airAllocation"></div><p>編成は港で変更できます。搭載枠を増やした後は機数も配分してください。1機の発艦に燃料15、攻撃1回に航空弾5を使用。迎撃・爆撃・帰艦は自動で、1機が最大3回攻撃して再装填します。撃墜された機体はその出撃中には戻りません。</p></section>
+<p class="shop-note">航空戦艦への改装は第3海域の解放後。改装後も主砲1～4門の兵装はそのまま使えます。標準戦艦へ戻しても、購入した航空設備と機体強化は保存されます。潜水艦には従来のソナーと対潜兵装を準備してください。</p>
+</div>
 <div id="supplyView" class="hidden"><p class="shop-note">主砲弾・対空弾・対潜弾・龍神弾は1射で5単位、斉射は装備中の1門につき5単位。通常航行の燃料は毎秒5、回避でも追加消費します。長い作戦には積載量を増やし、弾薬・燃料切れによる撤退を防いでください。</p><div id="supplyCards" class="shop-cards"></div><div class="emergency-supply"><button id="emergencySupply">緊急復帰を受ける</button><p id="emergencyStatus"></p></div></div>
-<div id="shopMessage" role="status"></div><footer class="harbor-foot"><span id="saveStatus">進行・装備・補給・船体状態はこのブラウザに保存されます</span><button id="resetProgress">進行をリセット</button></footer></div></section>
+<div id="shopMessage" role="status"></div><footer class="harbor-foot"><span><b class="version-badge">v7 · 航空戦艦</b> <span id="saveStatus">進行・装備・補給・船体状態はこのブラウザに保存されます</span></span><button id="resetProgress">進行をリセット</button></footer></div></section>
 <section id="resetConfirm" class="overlay hidden"><div class="dialog"><small>NEW CAMPAIGN</small><h2>進行をリセット</h2><p>制圧済みの海域・資金・購入した装備を初期状態に戻します。</p><button id="cancelReset">戻る</button><button class="secondary" id="confirmReset">進行を削除して最初から</button></div></section>
 <div id="rotate"><span>↻</span><p>スマホを横向きにすると<br>海上の敵を見渡して遊べます</p></div>
 <div id="loading">海域を準備しています…</div>
 </main>
-<script type="module" src="./game.js?v=asahi-v6.4"></script>
+<script type="module" src="./game.js?v=asahi-v7.0"></script>
 </body></html>

@@ -295,6 +295,19 @@ export class NavalThreats {
     const origin = this._maneuver().position;
     this.patrol = { time: 0, origin, position: origin.clone().add(new THREE.Vector3(-18, 9, 45)) };
   }
+  // Friendly aviation works against public snapshots; enemy rewards remain owned
+  // by this threat system, so an air-to-air kill cannot be scored twice.
+  airborneTargets() {
+    return this.aircraft.map(a => ({ id: a.id, position: a.position.clone(), velocity: a.velocity?.clone?.() || new THREE.Vector3(), hp: a.hp, state: a.state }));
+  }
+  attackAircraft(id, damage) {
+    const index = this.aircraft.findIndex(a => a.id === id);
+    const amount = Number(damage);
+    if (index < 0 || !Number.isFinite(amount) || amount <= 0) return { ok: false, killed: false, hp: 0 };
+    const aircraft = this.aircraft[index]; aircraft.hp -= amount;
+    if (aircraft.hp <= 0) { this._killAircraft(index); return { ok: true, killed: true, hp: 0 }; }
+    return { ok: true, killed: false, hp: aircraft.hp };
+  }
   get airContacts() {
     return this.aircraft.map(a => ({ id: a.id, name: '敵爆撃機', position: a.position.clone(), hp: a.hp,
       altitude: Math.round(a.position.y * METRES_PER_UNIT), distance: Math.round(a.position.distanceTo(this._maneuver().position) * METRES_PER_UNIT) }));

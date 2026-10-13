@@ -1,10 +1,38 @@
+import { createAviationDeck } from './aviation-deck.js?v=asahi-v7.0';
 // Code-built naval geometry: long bow, pagoda bridge and a shared expanding turret.
 export function buildFlagship(kit) {
-  const {THREE,steel,darkSteel,edgeSteel,wood,black,bronze,box,cylinder,ring,mesh}=kit;
+  const {THREE,steel:baseSteel,darkSteel:baseDarkSteel,edgeSteel,wood:baseWood,black,bronze,box,cylinder,ring,mesh}=kit;
+  const ownedMaterials=[],ownedTextures=[];
+  function surfaceTexture(paint) {
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=256;paint(canvas.getContext('2d'));
+    const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+    texture.wrapS=texture.wrapT=THREE.RepeatWrapping;ownedTextures.push(texture);return texture;
+  }
+  const plateMap=surfaceTexture(ctx=>{
+    ctx.fillStyle='#7a8386';ctx.fillRect(0,0,256,256);
+    let seed=70143;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+    for(let i=0;i<2500;i++){ctx.fillStyle=i%2?'#b5bfc31c':'#19232920';ctx.fillRect(random()*256,random()*256,1+random()*2,1);}
+    for(let y=0;y<256;y+=64){ctx.fillStyle='#16232b75';ctx.fillRect(0,y,256,1);for(let x=8;x<256;x+=16){ctx.fillStyle='#c1c6c084';ctx.fillRect(x,y+3,2,2);ctx.fillStyle='#273037a0';ctx.fillRect(x+1,y+4,1,1);}}
+    for(let x=0;x<256;x+=128){ctx.fillStyle='#27303977';ctx.fillRect(x,0,1,256);}
+    for(let i=0;i<30;i++){const x=random()*256,y=random()*256;ctx.fillStyle='#7c523626';ctx.fillRect(x,y,2+random()*5,4+random()*17);}
+  });
+  const plankMap=surfaceTexture(ctx=>{
+    ctx.fillStyle='#766e58';ctx.fillRect(0,0,256,256);
+    for(let y=0;y<256;y+=16){ctx.fillStyle=y%32?'#5f5b4c':'#847a61';ctx.fillRect(0,y,256,15);ctx.fillStyle='#1e2829';ctx.fillRect(0,y,256,1);
+      for(let x=(y%48)*2;x<256;x+=84){ctx.fillRect(x,y,1,16);ctx.fillRect(x+3,y+3,1,1);ctx.fillRect(x+3,y+12,1,1);}
+      ctx.fillStyle='#aea28433';ctx.fillRect(0,y+5,256,1);ctx.fillStyle='#332f2533';ctx.fillRect(0,y+11,256,1);}
+  });
+  plankMap.repeat.set(.18,.18);
+  const steel=baseSteel.clone();steel.map=plateMap;steel.color.setHex(0xc0c7c9);steel.roughness=.53;steel.metalness=.66;
+  const darkSteel=baseDarkSteel.clone();darkSteel.map=plateMap;darkSteel.color.setHex(0x687378);darkSteel.roughness=.61;darkSteel.metalness=.55;
+  const wood=baseWood.clone();wood.map=plankMap;wood.color.setHex(0xc2baa4);wood.roughness=.88;
+  ownedMaterials.push(steel,darkSteel,wood);
   const ship=new THREE.Group();ship.name='Asahi';
   const detail=new THREE.Group();detail.name='ship-details';ship.add(detail);
+  const standardAft=new THREE.Group();standardAft.name='battleship-aft-equipment';ship.add(standardAft);
   const red=new THREE.MeshStandardMaterial({color:0x4d2624,roughness:.86,metalness:.2});
   const glass=new THREE.MeshStandardMaterial({color:0x07181f,metalness:.08,roughness:.32});
+  ownedMaterials.push(red,glass);
   const plan=new THREE.Shape();plan.moveTo(0,-42);
   plan.bezierCurveTo(-3,-40,-9,-25,-10.6,-10);plan.lineTo(-11.2,63);
   plan.bezierCurveTo(-10.8,79,-8,88,-5,91);plan.lineTo(5,91);
@@ -28,6 +56,9 @@ export function buildFlagship(kit) {
     const chain=cylinder(ship,.07,.07,15,side*3.5,2.92,-26,black,6);chain.rotation.x=Math.PI/2;
     cylinder(ship,.7,.85,.6,side*3.5,3.1,-18,darkSteel,16);
     for(const z of [-12,19,59,82])box(ship,1.5,.19,2.1,side*6.1,2.8,z,edgeSteel);
+    // Long armor plates, fine portholes and vertical seams catch oblique light.
+    for(let z=-8;z<65;z+=3.8){line([side*11.24,.27,z],[side*11.24,1.85,z]);line([side*11.25,1.2,z+.9],[side*11.25,1.2,z+1.18]);}
+    for(let z=-30;z<-8;z+=3.0){const x=side*(3+(z+30)*.29);line([x,.3,z],[x,1.85,z]);}
   }
   // The stepped bridge rises above the funnels, matching the references' silhouette.
   const bridge=new THREE.Group();bridge.name='pagoda-bridge';bridge.position.z=34;ship.add(bridge);
@@ -38,6 +69,18 @@ export function buildFlagship(kit) {
     if(y>=10){const panes=mesh(new THREE.CylinderGeometry(w*.49+.04,w*.49+.04,.48,24,1,true,Math.PI/2,Math.PI),glass,bridge,0,y+.25,0);panes.scale.z=d/w;}
   }
   for(const [y,w,z] of [[9.8,14,-.9],[13.5,12,-.3],[17.2,9,0]]){box(bridge,w,.23,3.8,0,y,z,edgeSteel);for(const side of [-1,1]){box(bridge,2.1,.9,2.9,side*(w/2-1),y+.55,z,darkSteel);box(bridge,1.7,.35,.05,side*(w/2-1),y+.7,z-1.5,glass);line([side*w/2,y+.85,z+32],[side*w/2,y+.85,z+36]);}}
+  // Observation wings, optical directors and exterior lattice stairs make the
+  // central pagoda denser than a stack of uninterrupted round platforms.
+  for(const side of [-1,1]){
+    for(const [y,z,w] of [[7.8,-1.5,11.4],[12.0,.1,10.4],[15.6,.25,8.5]]){
+      box(bridge,2.25,.19,3.7,side*(w/2),y,z,steel);
+      cylinder(bridge,.24,.34,.65,side*(w/2),y+.45,z-.9,darkSteel,8);
+      line([side*(w/2-1.1),y+.75,z+32.2],[side*(w/2+1.1),y+.75,z+32.2]);
+      for(let dz=-1.6;dz<1.6;dz+=.8)line([side*(w/2+1.1),y,z+34+dz],[side*(w/2+1.1),y+.75,z+34+dz]);
+    }
+    for(let y=7;y<18.5;y+=.52){line([side*4.1,y,35.8],[side*4.8,y,35.8]);}
+    line([side*4.1,6.6,35.8],[side*4.1,19,35.8]);line([side*4.8,6.6,35.8],[side*4.8,19,35.8]);
+  }
   for(const side of [-1,1]){line([side*3,3.2,28],[side*3,19.5,32]);for(let y=4;y<19;y+=.65)line([side*3-.3,y,28+(y-3.2)*.24],[side*3+.3,y,28+(y-3.2)*.24]);}
   cylinder(bridge,.15,.28,9,0,24.5,1,edgeSteel,10);
   for(const [y,w] of [[22,13],[25,9],[28,6]]){box(bridge,w,.12,.12,0,y,1,darkSteel);line([-w/2,y,35],[0,29,35]);line([w/2,y,35],[0,29,35]);}
@@ -45,19 +88,41 @@ export function buildFlagship(kit) {
   // Open lattice radar arrays are readable in the orbit and don't look like solid cubes.
   for(const side of [-1,1])for(let i=0;i<5;i++)line([side*(3.5+i*.55),21.9,34.3],[side*(3.5+i*.55),23.4,34.3]);
   for(const side of [-1,1])for(const y of [21.9,22.65,23.4])line([side*3.5,y,34.3],[side*5.7,y,34.3]);
-  for(const [z,r,h] of [[50,2.15,9.4],[64,1.65,7]]){const f=cylinder(ship,r*.85,r,h,0,3+h/2,z,darkSteel,20);f.rotation.x=-.09;cylinder(ship,r*.88,r*.88,.6,0,3+h,z-.45,black,20);for(const y of [5,8]){const rim=ring(ship,r,.07,0,y,z,edgeSteel);rim.rotation.x=Math.PI/2;}}
-  box(ship,10.8,2.7,27,0,3.8,54,steel);box(ship,11.4,.17,25,0,5.23,54,wood);
-  cylinder(ship,.13,.22,13,0,12.5,67,edgeSteel,8);box(ship,9,.12,.12,0,16.3,67,edgeSteel);line([-4.5,16.3,67],[0,19,67]);line([4.5,16.3,67],[0,19,67]);
+  const funnels=[];
+  const funnelLineMaterial=new THREE.LineBasicMaterial({color:0x9ba5a5,transparent:true,opacity:.8});ownedMaterials.push(funnelLineMaterial);
+  for(const [z,r,h] of [[50,2.15,9.4],[64,1.65,7]]){
+    const funnel=new THREE.Group();funnel.position.z=z;funnel.name=`funnel-${funnels.length+1}`;ship.add(funnel);funnels.push(funnel);
+    const f=cylinder(funnel,r*.85,r,h,0,3+h/2,0,darkSteel,20);f.rotation.x=-.09;
+    cylinder(funnel,r*.88,r*.88,.6,0,3+h,-.45,black,20);
+    for(const y of [5,8]){const rim=ring(funnel,r,.07,0,y,0,edgeSteel);rim.rotation.x=Math.PI/2;}
+    const ladderLines=[];
+    for(const side of [-1,1]){box(funnel,.25,h*.65,.7,side*(r+.08),3+h*.45,0,steel);for(let y=4;y<3+h;y+=.7)ladderLines.push(side*(r+.13),y,-.23,side*(r+.13),y,.23);}
+    const ladderGeometry=new THREE.BufferGeometry();ladderGeometry.setAttribute('position',new THREE.Float32BufferAttribute(ladderLines,3));funnel.add(new THREE.LineSegments(ladderGeometry,funnelLineMaterial));
+  }
+  box(standardAft,10.8,2.7,27,0,3.8,54,steel);box(standardAft,11.4,.17,25,0,5.23,54,wood);
+  cylinder(standardAft,.13,.22,13,0,12.5,67,edgeSteel,8);box(standardAft,9,.12,.12,0,16.3,67,edgeSteel);
+  const aftLines=[-4.5,16.3,67,0,19,67,4.5,16.3,67,0,19,67];
   // Aft heavy turret, secondary batteries, boats and stern aircraft catapult.
-  function decorativeTurret(x,z,scale=1,direction=1){
-    const t=new THREE.Group();t.position.set(x,2.9,z);t.scale.setScalar(scale);t.rotation.y=direction<0?Math.PI:0;ship.add(t);
+  function decorativeTurret(x,z,scale=1,direction=1,parent=ship){
+    const t=new THREE.Group();t.position.set(x,2.9,z);t.scale.setScalar(scale);t.rotation.y=direction<0?Math.PI:0;parent.add(t);
     cylinder(t,3.2,3.6,1,0,.5,0,darkSteel,20);box(t,6.5,2,4.8,0,1.6,0,steel);box(t,6.8,.18,4.8,0,2.7,0,edgeSteel);
     for(const x of [-1.65,0,1.65]){const tube=cylinder(t,.29,.43,7,x,1.9,-4.8,steel,16);tube.rotation.x=-Math.PI/2;ring(t,.3,.055,x,1.9,-8.25,edgeSteel);}
+    return t;
   }
-  decorativeTurret(0,74,.91,-1);for(const side of [-1,1])for(const z of [31,57])decorativeTurret(side*7.5,z,.36,side<0?1:-1);
+  const aftTurret=decorativeTurret(0,74,.91,-1,standardAft);aftTurret.name='aft-heavy-turret';
+  const hybridForeTurret=decorativeTurret(0,15,1.0,1);hybridForeTurret.position.y=4.0;hybridForeTurret.name='hybrid-forward-secondary-turret';hybridForeTurret.visible=false;
+  for(const side of [-1,1])for(const z of [31,57])decorativeTurret(side*7.5,z,.36,side<0?1:-1);
   for(const side of [-1,1]){const boat=mesh(new THREE.SphereGeometry(1,10,6),wood,detail,side*7.3,5.6,45);boat.scale.set(1.2,.55,4.4);box(detail,1.5,.45,5.3,side*7.3,5.8,45,edgeSteel);}
-  box(detail,9,.25,.7,0,3.0,86,darkSteel);cylinder(detail,.13,.25,6,5.7,5.5,85,darkSteel,8);line([5.7,8.5,85],[.5,6.7,87]);line([5.7,8.5,85],[5.7,3,85]);
-  const lineGeo=new THREE.BufferGeometry();lineGeo.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));detail.add(new THREE.LineSegments(lineGeo,new THREE.LineBasicMaterial({color:0x8c9897,transparent:true,opacity:.68})));
+  box(standardAft,9,.25,.7,0,3.0,86,darkSteel);cylinder(standardAft,.13,.25,6,5.7,5.5,85,darkSteel,8);aftLines.push(5.7,8.5,85,.5,6.7,87,5.7,8.5,85,5.7,3,85);
+  const lineMaterial=new THREE.LineBasicMaterial({color:0x8c9897,transparent:true,opacity:.68});ownedMaterials.push(lineMaterial);
+  const lineGeo=new THREE.BufferGeometry();lineGeo.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));detail.add(new THREE.LineSegments(lineGeo,lineMaterial));
+  const aftLineGeo=new THREE.BufferGeometry();aftLineGeo.setAttribute('position',new THREE.Float32BufferAttribute(aftLines,3));standardAft.add(new THREE.LineSegments(aftLineGeo,lineMaterial));
+  const rivets=[];for(const side of [-1,1])for(let z=-6;z<63;z+=1.4)for(const y of [.48,1.56])rivets.push(side*11.24,y,z);
+  const rivetGeometry=new THREE.BufferGeometry();rivetGeometry.setAttribute('position',new THREE.Float32BufferAttribute(rivets,3));
+  const rivetMaterial=new THREE.PointsMaterial({color:0xb0b9b9,size:.08});ownedMaterials.push(rivetMaterial);
+  detail.add(new THREE.Points(rivetGeometry,rivetMaterial));
+  const aviation=createAviationDeck({...kit,steel,darkSteel,wood});ship.add(aviation.group);aviation.group.visible=false;
+  ownedMaterials.push(...aviation.ownedMaterials);ownedTextures.push(...aviation.ownedTextures);
   const batteryMount=new THREE.Group();batteryMount.name='expanding-main-battery';batteryMount.position.set(0,2.8,-5);ship.add(batteryMount);
   cylinder(batteryMount,5.1,5.55,.65,0,.33,0,darkSteel,40);cylinder(batteryMount,4.95,5.1,.75,0,1,0,steel,40);
   const turretYaw=new THREE.Group();turretYaw.position.y=1.35;batteryMount.add(turretYaw);
@@ -75,10 +140,24 @@ export function buildFlagship(kit) {
     ring(barrel,.43,.105,0,0,-13,edgeSteel);const muzzle=mesh(new THREE.CircleGeometry(.33,20),black,barrel,0,0,-13.12);muzzle.rotation.y=Math.PI;
     for(const side of [-1,1]){const piston=cylinder(barrel,.12,.15,3,side*.68,-.42,-1.7,edgeSteel,10);piston.rotation.x=-Math.PI/2;}
     const reactorMat=new THREE.MeshBasicMaterial({color:0x66dfff,transparent:true,opacity:.9});
+    ownedMaterials.push(reactorMat);
     const reactor=mesh(new THREE.CircleGeometry(.26,20),reactorMat,barrel,0,0,-13.14);reactor.rotation.y=Math.PI;reactor.visible=false;
     const flash=new THREE.PointLight(0xffba64,0,32,2);flash.position.set(0,0,MUZZLE_Z);barrel.add(flash);
     guns.push({base:batteryMount,swivel:turretYaw,pitch:turretElevation,barrel,flash,reactor,cooldown:0,recoil:0,index:i});
   }
   ship.userData.dimensions={width:22.4,length:133,bow:-42,stern:91};
-  return {ship,guns,batteryMount,turretYaw,turretElevation,MUZZLE_Z};
+  let hullMode='battleship',capacityLevel=0;
+  function setHullMode(mode='battleship',capacity=0,levels={},loadout={}) {
+    hullMode=mode==='hybrid'?'hybrid':'battleship';capacityLevel=Math.max(0,Math.min(5,Math.floor(Number(capacity)||0)));
+    const hybrid=hullMode==='hybrid';standardAft.visible=!hybrid;hybridForeTurret.visible=hybrid;aviation.group.visible=hybrid;
+    funnels[0].position.z=hybrid?41.1:50;funnels[1].position.z=hybrid?46.0:64;
+    const deckState=aviation.configure(capacityLevel,levels,loadout);
+    ship.userData.hullMode=hullMode;ship.userData.aviation={...deckState};
+    return {mode:hullMode,capacityLevel,parkedCount:hybrid?deckState.parkedCount:0};
+  }
+  function getDeckPose() {
+    return {launchOrigin:new THREE.Vector3(0,9,65),landingOrigin:new THREE.Vector3(0,9,82),elevatorPos:new THREE.Vector3(7.55,8.75,68.5),mode:hullMode,capacityLevel};
+  }
+  setHullMode();
+  return {ship,guns,batteryMount,turretYaw,turretElevation,MUZZLE_Z,setHullMode,getDeckPose,aviationDeck:aviation.group,ownedMaterials,ownedTextures};
 }

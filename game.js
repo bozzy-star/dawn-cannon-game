@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { CannonAudio } from './audio.js?v=asahi-v6.4';
-import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore } from './campaign.js?v=asahi-v6.4';
-import { createWarship } from './enemies.js?v=asahi-v6.4';
-import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v6.4';
-import { Battlefield } from './battlefield.js?v=asahi-v6.4';
-import { buildFlagship } from './flagship.js?v=asahi-v6.4';
+import { CannonAudio } from './audio.js?v=asahi-v7.0';
+import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore, AIRCRAFT_TYPES, AVIATION_CONVERSION, aviationStats } from './campaign.js?v=asahi-v7.0';
+import { createWarship } from './enemies.js?v=asahi-v7.0';
+import { NavalThreats, createAuxiliaryMounts } from './threats.js?v=asahi-v7.0';
+import { Battlefield } from './battlefield.js?v=asahi-v7.0';
+import { buildFlagship } from './flagship.js?v=asahi-v7.0';
+import { NavalAviation } from './aviation.js?v=asahi-v7.0';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -111,7 +112,7 @@ function box(parent,w,h,d,x,y,z,mat=steel){return mesh(new THREE.BoxGeometry(w,h
 function cylinder(parent,rt,rb,h,x,y,z,mat=steel,segments=24){return mesh(new THREE.CylinderGeometry(rt,rb,h,segments),mat,parent,x,y,z);}
 function ring(parent,r,t,x,y,z,mat=edgeSteel){return mesh(new THREE.TorusGeometry(r,t,8,32),mat,parent,x,y,z);}
 const kit={THREE,steel,darkSteel,edgeSteel,deckMat,wood,black,bronze,box,cylinder,ring,mesh};
-const {ship,guns,batteryMount,turretYaw,turretElevation,MUZZLE_Z}=buildFlagship(kit);scene.add(ship);
+const {ship,guns,batteryMount,turretYaw,turretElevation,MUZZLE_Z,setHullMode,getDeckPose}=buildFlagship(kit);scene.add(ship);
 const smokeTex=canvasTexture((ctx,s)=>{const g=ctx.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);g.addColorStop(0,'rgba(239,233,215,.9)');g.addColorStop(.25,'rgba(202,207,202,.65)');g.addColorStop(.6,'rgba(171,181,183,.28)');g.addColorStop(1,'rgba(150,170,178,0)');ctx.fillStyle=g;ctx.fillRect(0,0,s,s);},64);
 const flameTex=canvasTexture((ctx,s)=>{const g=ctx.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);g.addColorStop(0,'rgba(255,255,231,1)');g.addColorStop(.18,'rgba(255,232,131,1)');g.addColorStop(.38,'rgba(255,152,36,.8)');g.addColorStop(.7,'rgba(208,74,5,.3)');g.addColorStop(1,'rgba(135,25,0,0)');ctx.fillStyle=g;ctx.fillRect(0,0,s,s);},64);
 const effects=[],shots=[],enemies=[];
@@ -161,12 +162,19 @@ const threats=new NavalThreats({scene,audio,onDamage:damageHull,onAirSpotted:(co
   const point=camera.position.clone().addScaledVector(direction,clamp(surfaceDistance,15,350));point.y=-bombDepth/10;
   return {origin:camera.position.clone(),direction,targetPoint:campaign.state.upgrades.asw>1&&contact?contact.position.clone():point};
 }});
+const aviation=new NavalAviation({scene,getState:()=>campaign.state.aviation,getManeuver:()=>maneuver,getWeather:()=>weather,consume:(kind,n=1)=>campaign.consume(kind,n),getThreats:()=>threats,
+  getDeckPose:()=>{ship.updateMatrixWorld(true);const pose=getDeckPose();return {launchOrigin:ship.localToWorld(pose.launchOrigin.clone()),landingOrigin:ship.localToWorld(pose.landingOrigin.clone()),yaw:ship.rotation.y};},
+  onSurfaceHit:(e,point,amount)=>{if(!e.dead&&e.kind!=='submarine'){hitEnemy(e,point,amount,1);stats.airGroundHits=(stats.airGroundHits||0)+1;}},
+  onEffect:(position,type,power=1)=>{if(type==='blast'){blast(position,power);puff(position,2,0x60656b,power);}else if(type==='splash')splash(position,power);else puff(position,1,0xd2dde0,.25,true);},
+  onMessage:message=>toast(message,1.8)
+});
 function syncGunLoadout(){
   const count=campaign.gunCount();selected=clamp(selected,0,count-1);
   guns.forEach((g,i)=>{g.barrel.visible=i<count;g.barrel.position.x=(i-(count-1)/2)*(count===4?2.05:2.3);g.barrel.scale.setScalar(1+.035*gunLoadout(i).power);});
 }
 function syncAuxiliary(){
   syncGunLoadout();
+  const a=campaign.state.aviation;setHullMode(a.hullMode,a.capacityLevel,a.levels,a.loadout);
   if(auxiliary){ship.remove(auxiliary);const geometry=new Set(),materials=new Set();auxiliary.traverse(n=>{if(n.geometry)geometry.add(n.geometry);if(n.material)for(const m of Array.isArray(n.material)?n.material:[n.material])materials.add(m);});for(const g of geometry)g.dispose();for(const m of materials)m.dispose();}
   auxiliary=createAuxiliaryMounts(campaign.state.upgrades);ship.add(auxiliary);
 }
@@ -176,11 +184,13 @@ function setScreen(mode){
   for(const [id,screen] of [['start','title'],['harbor','harbor'],['pausePanel','pause'],['end','result'],['reviewPanel','review']])$(id).classList.toggle('hidden',screen!==mode);
   document.body.classList.toggle('playing',mode==='battle'||mode==='pause');
   paused=mode==='pause';
+  const a=campaign.state.aviation;aviation.group.visible=a.hullMode==='hybrid'&&(mode==='battle'||mode==='pause');
+  if(mode==='review'&&reviewReturn==='result')setHullMode(a.hullMode,a.capacityLevel,a.levels,aviation.stats.roles);
 }
 function updateSaveSummary(){
   $('saveSummary').textContent=`全5部 · 制圧 ${campaign.state.conquered.length} / ${AREAS.length}海域 · 保有 ${campaign.state.credits.toLocaleString()} C`;
 }
-const supplyNames={shell:'主砲弾',aa:'対空弾',asw:'対潜弾',dragon:'龍神弾',fuel:'燃料'};
+const supplyNames={shell:'主砲弾',aa:'対空弾',asw:'対潜弾',dragon:'龍神弾',fuel:'燃料',aviation:'航空弾'};
 function renderWorldMap(){
   const project=(lon,lat)=>[(((lon%360)+360)%360)/360*1000,(80-lat)/140*430];
   const points=(list)=>list.map(p=>project(...p).map(v=>v.toFixed(1)).join(',')).join(' ');
@@ -206,8 +216,8 @@ function renderSupplies(){
 function renderHarbor(){
   const state=campaign.state,area=AREAS[chosenArea-1],requirements=campaign.requirements(chosenArea),recommendations=area.recommendations||{};
   $('credits').textContent=`${state.credits.toLocaleString()} C`;
-  for(const [id,tab] of [['mapTab','map'],['shopTab','shop'],['supplyTab','supply']])$(id).classList.toggle('active',harborTab===tab);
-  for(const [id,tab] of [['mapView','map'],['shopView','shop'],['supplyView','supply']])$(id).classList.toggle('hidden',harborTab!==tab);
+  for(const [id,tab] of [['mapTab','map'],['shopTab','shop'],['supplyTab','supply'],['aviationTab','aviation']])$(id).classList.toggle('active',harborTab===tab);
+  for(const [id,tab] of [['mapView','map'],['shopView','shop'],['supplyView','supply'],['aviationView','aviation']])$(id).classList.toggle('hidden',harborTab!==tab);
   $('worldView').classList.toggle('hidden',harborTab!=='map');
   $('partTabs').innerHTML=WORLD.parts.map(p=>`<button data-part="${p.id}" class="${worldPart===p.id?'active':''}">第${p.id}部</button>`).join('');
   const part=WORLD.parts.find(p=>p.id===worldPart);$('partStory').textContent=`${part.title} — ${part.story}`;
@@ -218,7 +228,7 @@ function renderHarbor(){
   const kinds=[...new Set(area.waves.flat().map(e=>e.kind))];
   $('enemyList').innerHTML=kinds.map(k=>`<span>${ENEMY_TYPES[k].name}</span>`).join('')+(area.airRaid?.some(n=>n>0)?`<span>爆撃機 ${area.airRaid.reduce((a,b)=>a+b,0)}機</span>`:'')+(area.minefield?.count?'<span>機雷原</span>':'')+(area.shoreAssault?'<span>基地・戦車・航空基地</span>':'');
   const record=state.records[String(area.id)];$('areaRecord').textContent=record?`最高 ${record.bestScore.toLocaleString()}点 · 命中 ${record.bestAccuracy}% · 評価 ${record.rank} · 制圧 ${record.victories}回`:'未制圧の海域。勝利すると次の海域が解放されます。';
-  $('loadout').textContent=`主砲${campaign.gunCount()}門：${state.guns.map((g,i)=>`第${i+1}門 ${WEAPONS[g.weapon].name}・出力${g.power}・給弾${g.reload}`).join(' / ')} / 船体状態 ${Math.round(state.hull)}% / 燃料庫 ${campaign.fuelCapacity()} / ${Object.entries(state.stock).map(([k,n])=>`${supplyNames[k]} ${n}`).join(' · ')}`;
+  $('loadout').textContent=`${state.aviation.hullMode==='hybrid'?`航空戦艦 · 搭載${Object.values(state.aviation.loadout).reduce((a,b)=>a+b,0)}/${campaign.aviationCapacity()}機`:'標準戦艦'} / 主砲${campaign.gunCount()}門：${state.guns.map((g,i)=>`第${i+1}門 ${WEAPONS[g.weapon].name}・出力${g.power}・給弾${g.reload}`).join(' / ')} / 船体状態 ${Math.round(state.hull)}% / 燃料庫 ${campaign.fuelCapacity()} / ${Object.entries(state.stock).map(([k,n])=>`${supplyNames[k]} ${n}`).join(' · ')}`;
   const deploy=campaign.canDeploy(chosenArea);$('deploy').disabled=!deploy.ok;$('deploymentStatus').textContent=deploy.ok?'装備・補給・船体確認完了。出撃できます。':deploy.reason;$('deploymentStatus').classList.toggle('warning',!deploy.ok);
   const focus=gunRequirementFocus(requirements),missing=Object.keys(requirements).filter(k=>['weapon','gunPower','reload'].includes(k)?(state.guns[focus][{weapon:'weapon',gunPower:'power',reload:'reload'}[k]]||0)<requirements[k]:(state.upgrades[k]||0)<requirements[k]);$('shopTab').classList.toggle('needed',missing.length>0);$('shopTab').textContent=missing.length?`強化パーツ · 必須${missing.length}`:'強化パーツ';
   const categories={weapon:'MAIN BATTERY / 砲弾系統',gunPower:'GUN POWER / 主砲出力',reload:'LOADER / 給弾',armor:'ARMOR / 装甲',special:'SPECIAL / 必殺技',aa:'AIR DEFENSE / 対空',radar:'FIRE CONTROL / レーダー',sonar:'DETECTION / ソナー',asw:'ANTI SUB / 対潜',fuelTank:'FUEL TANK / 燃料庫',propeller:'PROPULSION / スクリュー'};
@@ -233,8 +243,24 @@ function renderHarbor(){
   const quote=campaign.repairQuote();$('condition').textContent=`船体状態 ${Math.round(state.hull)}% · ${Object.entries(state.damageZones).filter(([,n])=>n>2).map(([k,n])=>`${zoneNames[k]}損傷${Math.round(n)}%`).join(' / ')||'損傷なし'}`;
   $('repair').textContent=quote.cost?`全修理 ${quote.cost.toLocaleString()} C`:'修理済み';$('repair').disabled=!quote.cost||state.credits<quote.cost;
   $('repair').classList.toggle('needed',state.hull<65);$('repairNote').textContent=state.hull<35?'大破状態です。修理しないと出撃できません。':quote.cost?'損傷は次の出撃にも残ります。港で修理してください。':'船体・各部位とも健全です。';
-  renderWorldMap();renderSupplies();updateSaveSummary();syncDamageVisual();
+  renderWorldMap();renderSupplies();renderAviationShop();updateSaveSummary();syncDamageVisual();
 }
+function renderAviationShop(){
+  const state=campaign.state,a=state.aviation,capacity=campaign.aviationCapacity(),assigned=Object.values(a.loadout).reduce((n,x)=>n+x,0);
+  const buyLabel=item=>state.unlockedArea<item.unlockArea?`第${item.unlockArea}海域で解放`:`${item.price.toLocaleString()} C${state.credits<item.price?' · 資金不足':' で購入'}`;
+  if(!a.converted){const item=AVIATION_CONVERSION;$('aviationConversion').innerHTML=`<article class="aviation-refit"><div><small>航空戦艦への改装 · 一度だけ購入</small><h3>${item.name}</h3><p>後部に飛行甲板・格納庫を新設。迎撃機・爆撃機・戦闘機を各2機、航空弾150単位付きで配備します。主砲は残ります。</p></div><button data-air-convert ${state.unlockedArea<item.unlockArea||state.credits<item.price?'disabled':''}>${buyLabel(item)}</button></article>`;}
+  else $('aviationConversion').innerHTML=`<article class="aviation-refit"><div><small>改装済み · 船体を無料で切り替え</small><h3>${a.hullMode==='hybrid'?'航空戦艦 朝日':'標準戦艦 朝日'}</h3><p>航空設備・主砲の個別強化・編成は保存されます。航空隊が飛ぶのは航空戦艦の時です。</p></div><div class="hull-mode-buttons"><button data-hull-mode="battleship" class="${a.hullMode==='battleship'?'active':''}">標準戦艦</button><button data-hull-mode="hybrid" class="${a.hullMode==='hybrid'?'active':''}">航空戦艦</button></div></article>`;
+  const expansion=campaign.nextAviationUpgrade('capacity');
+  $('aviationCapacity').innerHTML=`<article class="aviation-refit"><div><small>格納庫・飛行甲板 / Lv.${a.capacityLevel}</small><h3>搭載上限 ${capacity}機${expansion?` → ${expansion.capacity}機`: ' · 最大まで増設済み'}</h3><p>6 → 12 → 24 → 36 → 60機。航空隊を長く維持し、迎撃と爆撃の機数を増やせます。</p></div>${expansion?`<button data-air-buy="capacity" ${!a.converted||state.unlockedArea<expansion.unlockArea||state.credits<expansion.price?'disabled':''}>${!a.converted?'航空戦艦への改装が必要':buyLabel(expansion)}</button>`:'<span class="maxed">増設完了</span>'}</article>`;
+  $('aviationCards').innerHTML=Object.entries(AIRCRAFT_TYPES).map(([kind,type])=>{
+    const spec=aviationStats(kind,a.levels[kind]),item=campaign.nextAviationUpgrade(kind);
+    return `<article class="shop-card"><small>${type.name} / Lv.${a.levels[kind]} / 5</small><h3>${spec.name}</h3><span class="air-tier">${spec.generation}</span><p>${type.description}</p><p class="air-stats">威力 ${spec.damage} · 耐久 ${spec.hp} · 速度 ${Math.round(spec.speed*10)}m/s<br>攻撃圏 ${Math.round(spec.range*10)}m · 帰艦後再装填 ${spec.rearm}秒</p>${item?`<p>次：${item.name}</p><button data-air-buy="${kind}" ${!a.converted||state.unlockedArea<item.unlockArea||state.credits<item.price?'disabled':''}>${!a.converted?'航空戦艦への改装が必要':buyLabel(item)}</button>`:'<span class="maxed">最新世代ステルス · 最終強化済み</span>'}</article>`;
+  }).join('');
+  $('airAllocationSummary').textContent=a.converted?`編成 ${assigned} / ${capacity}機 · 空き ${capacity-assigned}`:'改装後に編成できます';$('autoAirLoadout').disabled=!a.converted;
+  $('airAllocation').innerHTML=Object.entries(AIRCRAFT_TYPES).map(([kind,type])=>`<div class="air-allocation-row"><label for="air-count-${kind}">${type.name}</label><input id="air-count-${kind}" data-air-role="${kind}" type="range" min="0" max="${capacity-(assigned-a.loadout[kind])}" step="1" value="${a.loadout[kind]}" aria-label="${type.name}の搭載数" ${a.converted?'':'disabled'}><output>${a.loadout[kind]}機</output></div>`).join('');
+}
+function applyAviationResult(result){if(!result)return;syncAuxiliary();renderHarbor();$('shopMessage').textContent=result.reason;audio.unlock();if(result.ok)audio.morse('OK');}
+function launchAirWing(){if(uiMode!=='battle'||finished)return false;audio.unlock();const result=aviation.launch(enemies);if(result.reason)toast(result.reason,1.8);return result.ok;}
 function gunRequirementFocus(requirements){
   const guns=campaign.state.guns;const deficit=g=>Math.max(0,(requirements.weapon||0)-g.weapon)*2+Math.max(0,(requirements.gunPower||0)-g.power)+Math.max(0,(requirements.reload||0)-g.reload);
   return guns.reduce((best,g,i)=>deficit(g)<deficit(guns[best])?i:best,0);
@@ -297,7 +323,7 @@ function spawnWave(){
   if(visibleFleet.length){scene.updateMatrixWorld(true);const focus=weakPosition(visibleFleet[Math.floor(visibleFleet.length/2)]),from=maneuver.position.clone().add(new THREE.Vector3(0,13,9.5)),delta=focus.sub(from);yaw=Math.atan2(-delta.x,-delta.z);pitch=clamp(Math.atan2(delta.y,Math.hypot(delta.x,delta.z)),-.3,.2);}
 }
 function cleanupBattle(){
-  threats.reset();battlefield.reset();selectedContact=null;
+  threats.reset();aviation.reset();battlefield.reset();selectedContact=null;
   for(const e of enemies)removeEnemy(e);enemies.length=0;
   for(const s of shots)scene.remove(s.ball);shots.length=0;
   for(const e of effects)removeEffect(e);effects.length=0;
@@ -523,6 +549,8 @@ function tick(dt){
     if(finished)return;
   }
   threats.tick(dt,enemies);if(finished)return;
+  aviation.tick(dt,enemies);if(finished)return;
+  const a=campaign.state.aviation;if(a.hullMode==='hybrid')setHullMode(a.hullMode,a.capacityLevel,a.levels,aviation.stats.deckRoles||a.loadout);
   // Advance transforms before collision tests: contacts are tested at this frame's positions.
   scene.updateMatrixWorld(true);
   for(let i=shots.length-1;i>=0;i--){
@@ -559,8 +587,8 @@ function tick(dt){
   }
   if(finished)return;
   const alive=enemies.filter(e=>!e.dead),pending=shots.some(s=>!s.enemy)||!!charge;
-  if(campaign.state.stock.shell<5&&!pending&&alive.some(e=>e.kind!=='submarine'))endGame(false,'主砲弾不足・撤退');
-  else if(campaign.state.stock.aa<5&&air>0&&!threats.stats.aaActive&&!charge)endGame(false,'対空弾不足・撤退');
+  if(campaign.state.stock.shell<5&&!pending&&alive.some(e=>e.kind!=='submarine')&&!aviation.hasSurfaceCapability())endGame(false,'主砲弾不足・撤退');
+  else if(campaign.state.stock.aa<5&&air>0&&!threats.stats.aaActive&&!charge&&!aviation.hasAirCapability())endGame(false,'対空弾不足・撤退');
   else if(campaign.state.stock.asw<5&&alive.some(e=>e.kind==='submarine')&&!threats.stats.aswActive)endGame(false,'対潜弾不足・撤退');
   else if(mines&&campaign.state.stock.aa<5&&campaign.state.stock.asw<5&&!threats.stats.aaActive&&!threats.stats.aswActive)endGame(false,'機雷処理弾不足・撤退');
 }
@@ -597,6 +625,12 @@ function updateTacticalHUD(){
   $('supplyHUD').textContent=`主砲 ${state.stock.shell} · 対空 ${state.stock.aa} · 対潜 ${state.stock.asw} · 燃料 ${state.stock.fuel}/${campaign.fuelCapacity()}`;
   $('threatStatus').textContent=`航空 ${t.airborne}機 · 撃墜 ${stats.airKills||0}機 · 潜水 ${contacts.length} · 機雷 ${t.mines}`;
   $('tactical').classList.toggle('hidden',uiMode!=='battle'&&uiMode!=='pause');
+  const a=state.aviation,wing=aviation.stats,hybrid=a.converted&&a.hullMode==='hybrid';
+  $('airWingControl').classList.toggle('hidden',!hybrid||(uiMode!=='battle'&&uiMode!=='pause'));
+  $('launchAir').disabled=uiMode!=='battle'||state.stock.fuel<15||state.stock.aviation<5||!wing.ready;
+  $('launchAir').textContent=state.stock.aviation<5?'航空弾なし':state.stock.fuel<15?'燃料不足':'航空隊発艦';
+  $('airWingStatus').textContent=`飛行 ${wing.active}機 · 待機 ${wing.ready}機 · 喪失 ${wing.losses}機`;
+  if(hybrid)$('threatStatus').textContent+=` · 味方 ${wing.active}機 / 航空弾 ${state.stock.aviation}`;
   for(const id of ['evadeRight','evadeLeft']){$(id).disabled=maneuver.evadeCooldown>0||state.stock.fuel<15;$(id).textContent=(id==='evadeRight'?'右旋回':'左旋回')+(maneuver.evadeCooldown>0?` ${Math.ceil(maneuver.evadeCooldown)}`:'');}
   $('speedButton').textContent=maneuver.boost?'全速 → 巡航':'巡航';$('speedButton').classList.toggle('active',!maneuver.evading&&!maneuver.boost);
   $('sonar').classList.toggle('hidden',!u.sonar);$('asw').classList.toggle('hidden',!u.asw);$('contact').classList.toggle('hidden',!u.sonar);$('sonar').disabled=!u.sonar;$('sonar').textContent=!u.sonar?'ソナー未装備':`${['','パッシブ','アクティブ','ソノブイ'][u.sonar]} ${t.sonarOn?'ON':'OFF'}`;$('sonar').classList.toggle('active',t.sonarOn);
@@ -642,7 +676,7 @@ function inspectHull(){
   if(uiMode!=='harbor')return false;
   maxHP=100+campaign.state.upgrades.armor*30;hp=maxHP*campaign.state.hull/100;zones={...campaign.state.damageZones};syncDamageVisual();updateHullHUD();maneuver.position.set(0,0,0);maneuver.rollKick=maneuver.pitchKick=0;
   setWeather({...AREAS[0],weather:{...AREAS[0].weather,timeOfDay:'day'}});reviewReturn='harbor';reviewTime=0;reviewPending=reviewActive=true;
-  $('reviewPanel').querySelector('h2').textContent='朝日、船体点検。';$('skipReview').textContent='港に戻る →';setScreen('review');return true;
+  $('reviewPanel').querySelector('h2').textContent=campaign.state.aviation.hullMode==='hybrid'?'航空戦艦 朝日、船体点検。':'朝日、船体点検。';$('skipReview').textContent='港に戻る →';setScreen('review');return true;
 }
 
 
@@ -654,7 +688,12 @@ async function start(){const promise=audio.unlock();started=true;chosenArea=clam
 $('startButton').addEventListener('click',start);
 $('mapWorld').addEventListener('click',()=>{mapZoom='world';renderWorldMap();});$('mapPart').addEventListener('click',()=>{mapZoom='part';renderWorldMap();});
 $('repair').addEventListener('click',()=>{const result=campaign.repairHull();zones={...campaign.state.damageZones};hp=maxHP*campaign.state.hull/100;renderHarbor();$('shopMessage').textContent=result.reason;audio.unlock();if(result.ok)audio.morse('OK');});
-$('portInspect').addEventListener('click',inspectHull);$('skipReview').addEventListener('click',showResult);
+$('portInspect').addEventListener('click',inspectHull);$('aviationInspect').addEventListener('click',inspectHull);$('skipReview').addEventListener('click',showResult);
+$('aviationTab').addEventListener('click',()=>{harborTab='aviation';renderHarbor();});
+$('aviationView').addEventListener('click',e=>{const button=e.target.closest('button');if(!button||button.disabled)return;if(button.dataset.airConvert!==undefined)applyAviationResult(campaign.convertAviation());else if(button.dataset.hullMode)applyAviationResult(campaign.setHullMode(button.dataset.hullMode));else if(button.dataset.airBuy)applyAviationResult(campaign.buyAviationUpgrade(button.dataset.airBuy));});
+$('airAllocation').addEventListener('change',e=>{const input=e.target.closest('input[data-air-role]');if(input)applyAviationResult(campaign.setAirLoadout(input.dataset.airRole,Number(input.value)));});
+$('autoAirLoadout').addEventListener('click',()=>applyAviationResult(campaign.autoAirLoadout()));
+$('launchAir').addEventListener('click',launchAirWing);
 $('evadeLeft').addEventListener('click',()=>{audio.unlock();evade(-1);});$('evadeRight').addEventListener('click',()=>{audio.unlock();evade(1);});
 $('speedButton').addEventListener('click',()=>{if(uiMode==='battle'){maneuver.boost=false;maneuver.evadeTimer=0;maneuver.evading=false;toast('巡航に復帰',.7);}});
 $('rangeDial').addEventListener('change',()=>{rangeSetting=clamp(Number($('rangeDial').value)||180,30,detectionRange()*(1+.12*gunLoadout().power));toast(`射程設定 ${Math.round(rangeSetting*10)}m`);});
@@ -688,6 +727,7 @@ window.addEventListener('keydown',e=>{
   if(e.key===' '){audio.unlock();holdFire=true;fireSelected();repeatFireDelay=.35;}if(e.key.toLowerCase()==='f')salvo();if(e.key.toLowerCase()==='g')fireDragon();if(['1','2','3','4'].includes(e.key)&&Number(e.key)<=campaign.gunCount())selected=Number(e.key)-1;
   if(e.key.toLowerCase()==='q')evade(-1);if(e.key.toLowerCase()==='e')evade(1);if(e.key.toLowerCase()==='x')maneuver.boost=!maneuver.boost;
   if(e.key.toLowerCase()==='v')toggleSonar();if(e.key.toLowerCase()==='h')fireAntiSub();if(e.key.toLowerCase()==='r')selectSubContact();
+  if(e.key.toLowerCase()==='c')launchAirWing();
 });
 window.addEventListener('keyup',e=>{keys.delete(e.key);if(e.key===' ')holdFire=false;});
 window.addEventListener('blur',()=>{holdFire=false;aimPointer=null;keys.clear();if(uiMode==='battle')setPause(true);});
@@ -706,5 +746,5 @@ function animate(){
 }
 animate();
 // Read-only diagnostic snapshot; play is controlled through the visible UI.
-const snapshot=()=>({title:'弩級戦艦 朝日',started,paused,finished,screen:uiMode,weaponMode,battlePhase,weather:{...weather},maneuver:{position:maneuver.position.toArray(),velocity:maneuver.velocity.toArray(),evading:maneuver.evading,evadeWindow:maneuver.evadeWindow,boost:maneuver.boost},damageZones:{...zones},reviewActive,landingIntegrity,hp,maxHP,kills,area:activeArea,wave,selected,gunCount:campaign.gunCount(),gunLoadouts:campaign.state.guns.map(g=>({...g})),cooldowns:guns.map(g=>g.cooldown),shots:shots.length,enemies:enemies.filter(e=>!e.dead).map(e=>({kind:e.kind,hp:e.hp})),effects:effects.length,stats:{...stats},specialUsed,upgrades:{...campaign.state.upgrades},credits:campaign.state.credits,unlockedArea:campaign.state.unlockedArea,conquered:[...campaign.state.conquered],viewport:[innerWidth,innerHeight]});
+const snapshot=()=>({title:'弩級戦艦 朝日',started,paused,finished,screen:uiMode,weaponMode,battlePhase,weather:{...weather},maneuver:{position:maneuver.position.toArray(),velocity:maneuver.velocity.toArray(),evading:maneuver.evading,evadeWindow:maneuver.evadeWindow,boost:maneuver.boost},damageZones:{...zones},reviewActive,landingIntegrity,hp,maxHP,kills,area:activeArea,wave,selected,gunCount:campaign.gunCount(),gunLoadouts:campaign.state.guns.map(g=>({...g})),aviation:{...campaign.state.aviation,stats:aviation.stats},cooldowns:guns.map(g=>g.cooldown),shots:shots.length,enemies:enemies.filter(e=>!e.dead).map(e=>({kind:e.kind,hp:e.hp})),effects:effects.length,stats:{...stats},specialUsed,upgrades:{...campaign.state.upgrades},credits:campaign.state.credits,unlockedArea:campaign.state.unlockedArea,conquered:[...campaign.state.conquered],viewport:[innerWidth,innerHeight]});
 Object.defineProperty(window,'ASAHI',{get:snapshot});

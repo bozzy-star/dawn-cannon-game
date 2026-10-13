@@ -230,12 +230,40 @@ export const UPGRADES = freeze({
   ],
 });
 
+// All aircraft names and technical generations describe this fictional game.
+// Speed/range use the same 10 m world units as naval combat; rearm uses seconds.
+const aircraftGenerations=['レシプロ','初期ジェット','超音速','第四世代','先進ステルス','第五世代ステルス'];
+const aircraftData=(kind,name,family,description,speeds,damages,hps,ranges,rearms,intervals)=>({
+  kind,name,label:name,role:kind,description,
+  tiers:aircraftGenerations.map((generation,level)=>({kind,role:kind,name:`${family}${['一','二','三','四','五','六'][level]}型・${generation}`,level,generation,speed:speeds[level],damage:damages[level],hp:hps[level],range:ranges[level],rearm:rearms[level],attackInterval:intervals[level]})),
+});
+export const AIRCRAFT_TYPES=freeze({
+  interceptor:aircraftData('interceptor','迎撃機','蒼衛','接近する敵機を優先迎撃する艦隊防空機。水上艦・陸上施設は攻撃しない。',[34,45,58,72,88,105],[2.2,3,4,5.4,6.6,8],[3,4.5,6,8,11,14],[220,300,380,480,580,700],[24,21,18,15,12,10],[1.7,1.5,1.3,1.1,.9,.7]),
+  bomber:aircraftData('bomber','爆撃機','白槍','水上艦や陸上施設への打撃を担う。敵航空機は攻撃せず、迎撃機・戦闘機の護衛が必要。',[27,36,46,58,70,85],[6,9,13,17,21,26],[4,6,8,11,14,18],[240,330,430,560,700,850],[30,26,22,18,15,12],[3,3,3,3,3,3]),
+  fighter:aircraftData('fighter','戦闘機','天環','味方爆撃機を護衛し、残存敵機を掃討。敵機がいない時には水上艦・陸上施設にも限定攻撃する。',[38,49,62,78,94,110],[2.5,3.5,5,7,9,11],[3.5,5,7,9.5,12.5,16],[240,320,410,520,630,750],[26,23,20,17,14,11],[2,1.8,1.5,1.2,1,.8]),
+});
+export function aviationStats(kind,level=0){
+  if(!Object.prototype.hasOwnProperty.call(AIRCRAFT_TYPES,kind))return null;
+  const tier=AIRCRAFT_TYPES[kind].tiers[integer(level,0,5)];
+  return {...tier};
+}
+export const AVIATION_CONVERSION=freeze({kind:'conversion',name:'航空戦艦改装',description:'4門までの主砲と既存兵装を保持し、飛行甲板と6機の初期航空隊を追加。通常戦艦へ無料で切り替え可能。航空弾150単位を一度だけ受領する。',price:1800,unlockArea:3});
+export const AIRCRAFT_CAPACITIES=freeze([6,12,24,36,60]);
+export const AVIATION_CAPACITY_UPGRADES=freeze([
+  {kind:'capacity',level:1,name:'格納庫 I・12機',description:'最大搭載数を12機へ拡張。増えた枠は航空隊配分で割り当てる。',capacity:12,price:900,unlockArea:7},
+  {kind:'capacity',level:2,name:'格納庫 II・24機',description:'最大搭載数を24機へ拡張。防空・護衛・打撃の配分を増やせる。',capacity:24,price:2000,unlockArea:13},
+  {kind:'capacity',level:3,name:'格納庫 III・36機',description:'最大搭載数を36機へ拡張。長い上陸支援作戦に備える。',capacity:36,price:3600,unlockArea:19},
+  {kind:'capacity',level:4,name:'格納庫 IV・60機',description:'最大搭載数を60機へ拡張。最終部の大規模航空隊を編成する。',capacity:60,price:5600,unlockArea:25},
+]);
+export const AIRCRAFT_UPGRADES=freeze(Object.fromEntries(Object.entries(AIRCRAFT_TYPES).map(([kind,type])=>[kind,type.tiers.slice(1).map((tier,index)=>({kind,level:tier.level,name:tier.name,description:`${type.name}を${tier.generation}へ更新。速度・火力・耐久・航続範囲と再整備を改善。${type.description}`,price:[500,1000,2200,3600,5400][index],unlockArea:[7,13,19,25,31][index]}))])));
+
 export const CONSUMABLES = freeze({
   shell: { kind: 'shell', name: '主砲弾', price: 240, amount: 150 },
   aa: { kind: 'aa', name: '対空弾', price: 260, amount: 300 },
   asw: { kind: 'asw', name: '対潜弾', price: 450, amount: 30 },
   dragon: { kind: 'dragon', name: '龍神弾', price: 550, amount: 5 },
   fuel: { kind: 'fuel', name: '燃料', price: 180, amount: 600 },
+  aviation: { kind:'aviation',name:'航空弾',price:240,amount:150 },
 });
 
 export const GUN_EXPANSIONS = freeze([
@@ -262,16 +290,17 @@ export const CONSUMPTION_MULTIPLIER=5;
 export const DAMAGE_ZONES=freeze(['bow','stern','port','starboard','bridge','engine']);
 const FUEL_CAPACITIES=[2000,3000,4500,6500];
 const initialZones=()=>Object.fromEntries(DAMAGE_ZONES.map(kind=>[kind,0]));
-const initialStock = () => ({ shell:180,aa:240,asw:30,dragon:0,fuel:900 });
+const initialStock = () => ({ shell:180,aa:240,asw:30,dragon:0,fuel:900,aviation:0 });
+const freshAviation=()=>({converted:false,hullMode:'battleship',capacityLevel:0,levels:{interceptor:0,bomber:0,fighter:0},loadout:{interceptor:2,bomber:2,fighter:2}});
 const OLD_UNLOCKS = { weapon:[1,2,3,4], reload:[1,2,4], armor:[1,2,4], special:[5] };
 const freshState = () => ({
-  version: 4, credits: 1200, unlockedArea: 1, conquered: [], guns:[basicGun()],
+  version: 5, credits: 1200, unlockedArea: 1, conquered: [], guns:[basicGun()],aviation:freshAviation(),
   upgrades: Object.fromEntries(KINDS.map((kind) => [kind,0])), stock:initialStock(),records:{},legacyUpgrades:{},hull:100,damageZones:initialZones(),
 });
 
 function validateState(source) {
   const state = freshState();
-  if (!objectLike(source) || ![1,2,3,4].includes(source.version)) return state;
+  if (!objectLike(source) || ![1,2,3,4,5].includes(source.version)) return state;
   const migrated = source.version === 1;
   state.credits = integer(source.credits, 0, 1e9);
   // The one-time conversion grant equips returning captains for consumable play.
@@ -323,7 +352,7 @@ function validateState(source) {
   }else state.guns=[{...legacyGun}];
   syncGunUpgrades(state);
   if (!migrated && objectLike(source.stock)) {
-    for (const kind of SUPPLY_KINDS) state.stock[kind] = own(source.stock,kind) ? Math.min(999999,integer(source.stock[kind],0,999999)*(source.version===2?5:1)) : 0;
+    for (const kind of SUPPLY_KINDS) state.stock[kind] = kind==='aviation'&&source.version<5?0:own(source.stock,kind) ? Math.min(999999,integer(source.stock[kind],0,999999)*(source.version===2?5:1)) : 0;
   }
   if (migrated && state.upgrades.special > 0) state.stock.dragon=10;
   state.stock.fuel=Math.min(FUEL_CAPACITIES[state.upgrades.fuelTank],state.stock.fuel);
@@ -331,6 +360,28 @@ function validateState(source) {
     state.hull=bounded(source.hull,0,100,100);
     if(objectLike(source.damageZones))for(const kind of DAMAGE_ZONES)state.damageZones[kind]=bounded(source.damageZones[kind],0,100);
     if(objectLike(source.damageZones)&&own(source.damageZones,'deck'))state.damageZones.bridge=Math.max(state.damageZones.bridge,bounded(source.damageZones.deck,0,100));
+  }
+  if(source.version>=5&&objectLike(source.aviation)){
+    const original=source.aviation,aviation=state.aviation;
+    aviation.converted=original.converted===true&&state.unlockedArea>=AVIATION_CONVERSION.unlockArea;
+    aviation.hullMode=aviation.converted&&original.hullMode==='hybrid'?'hybrid':'battleship';
+    if(aviation.converted){
+      let capacityLevel=integer(original.capacityLevel,0,AVIATION_CAPACITY_UPGRADES.length);
+      while(capacityLevel>0&&AVIATION_CAPACITY_UPGRADES[capacityLevel-1].unlockArea>state.unlockedArea)capacityLevel--;
+      aviation.capacityLevel=capacityLevel;
+      for(const kind of Object.keys(AIRCRAFT_TYPES)){
+        let level=objectLike(original.levels)?integer(original.levels[kind],0,5):0;
+        while(level>0&&AIRCRAFT_UPGRADES[kind][level-1].unlockArea>state.unlockedArea)level--;
+        aviation.levels[kind]=level;
+      }
+      if(objectLike(original.loadout)){
+        let remaining=AIRCRAFT_CAPACITIES[capacityLevel];
+        for(const kind of Object.keys(AIRCRAFT_TYPES)){
+          const count=own(original.loadout,kind)?integer(original.loadout[kind],0,remaining):Math.min(2,remaining);
+          aviation.loadout[kind]=count;remaining-=count;
+        }
+      }
+    }
   }
   if (objectLike(source.records)) {
     for (const area of AREAS) {
@@ -358,7 +409,7 @@ export class CampaignStore {
       if (saved) {
         const decoded = JSON.parse(saved);
         this._state = validateState(decoded);
-        if ([1,2,3].includes(decoded?.version))this.save();
+        if ([1,2,3,4].includes(decoded?.version))this.save();
       }
     } catch { /* Memory-only progress remains playable. */ }
   }
@@ -438,6 +489,66 @@ export class CampaignStore {
     const requirements=Number.isInteger(areaOrRequirements)?this.requirements(areaOrRequirements):areaOrRequirements;
     if(!objectLike(requirements))return false;
     return Object.entries(GUN_FIELDS).every(([kind,field])=>gun[field]>=(requirements[kind]||0));
+  }
+
+  aviationCapacity() { return AIRCRAFT_CAPACITIES[this._state.aviation.capacityLevel]; }
+
+  nextAviationUpgrade(kind) {
+    if(kind!=='capacity'&&!own(AIRCRAFT_TYPES,kind))return null;
+    const aviation=this._state.aviation;
+    const upgrade=kind==='capacity'?AVIATION_CAPACITY_UPGRADES[aviation.capacityLevel]:AIRCRAFT_UPGRADES[kind][aviation.levels[kind]];
+    return upgrade?{...upgrade,requiresConversion:!aviation.converted}:null;
+  }
+
+  convertAviation() {
+    const upgrade={...AVIATION_CONVERSION};
+    if(this._state.aviation.converted)return {ok:false,reason:'航空戦艦改装は完了しています。船体形式は無料で切り替えられます。',upgrade};
+    if(this._state.unlockedArea<upgrade.unlockArea)return {ok:false,reason:`第${upgrade.unlockArea}海域の解放後に航空戦艦へ改装できます。`,upgrade};
+    if(this._state.credits<upgrade.price)return {ok:false,reason:`航空戦艦改装には${upgrade.price} C必要です。必須兵装・補給・修理の資金も確保してください。`,upgrade};
+    this._state.credits-=upgrade.price;
+    this._state.aviation.converted=true;this._state.aviation.hullMode='hybrid';
+    this._state.stock.aviation=Math.min(999999,this._state.stock.aviation+150);
+    this.save();
+    return {ok:true,reason:'航空戦艦へ改装しました。主砲と既存兵装を保持し、初期航空隊6機と航空弾150単位を受領しました。',upgrade};
+  }
+
+  buyAviationUpgrade(kind) {
+    const upgrade=this.nextAviationUpgrade(kind);
+    if(!upgrade)return {ok:false,reason:kind==='capacity'||own(AIRCRAFT_TYPES,kind)?'航空装備は最大まで強化済みです。':'不明な航空パーツです。',upgrade:null};
+    if(!this._state.aviation.converted)return {ok:false,reason:'先に航空戦艦改装を購入してください。',upgrade};
+    if(this._state.unlockedArea<upgrade.unlockArea)return {ok:false,reason:`第${upgrade.unlockArea}海域の解放後に購入できます。`,upgrade};
+    if(this._state.credits<upgrade.price)return {ok:false,reason:'航空装備の資金が不足しています。必須兵装・補給・修理を優先してください。',upgrade};
+    this._state.credits-=upgrade.price;
+    if(kind==='capacity')this._state.aviation.capacityLevel=upgrade.level;
+    else this._state.aviation.levels[kind]=upgrade.level;
+    this.save();
+    return {ok:true,reason:`${upgrade.name}を装備しました。${kind==='capacity'?'航空隊の搭載配分を設定してください。':''}`,upgrade};
+  }
+
+  setHullMode(mode) {
+    if(!['battleship','hybrid'].includes(mode))return {ok:false,reason:'船体形式は通常戦艦か航空戦艦を選んでください。'};
+    if(mode==='hybrid'&&!this._state.aviation.converted)return {ok:false,reason:'航空戦艦改装を購入してから切り替えてください。'};
+    this._state.aviation.hullMode=mode;this.save();
+    return {ok:true,reason:mode==='hybrid'?'航空戦艦へ切り替えました。主砲と航空隊を併用します。':'通常戦艦へ切り替えました。航空隊の発艦を停止し、購入済み兵装と航空隊編成は保持します。',hullMode:mode};
+  }
+
+  setAirLoadout(kind,count) {
+    if(!own(AIRCRAFT_TYPES,kind))return {ok:false,reason:'不明な航空機の種類です。'};
+    if(!this._state.aviation.converted)return {ok:false,reason:'航空戦艦改装後に航空隊の搭載配分を設定できます。'};
+    if(!Number.isInteger(count)||count<0)return {ok:false,reason:'搭載数は0以上の整数で指定してください。'};
+    const capacity=this.aviationCapacity(),loadout=this._state.aviation.loadout;
+    const other=Object.entries(loadout).reduce((sum,[key,value])=>sum+(key===kind?0:value),0);
+    if(other+count>capacity)return {ok:false,reason:`搭載上限は${capacity}機です。他機種${other}機を搭載中のため、${AIRCRAFT_TYPES[kind].name}は最大${capacity-other}機までです。`,capacity,available:capacity-other};
+    loadout[kind]=count;this.save();
+    return {ok:true,reason:`${AIRCRAFT_TYPES[kind].name}を${count}機に設定しました。合計${other+count}/${capacity}機。`,capacity,count};
+  }
+
+  autoAirLoadout() {
+    if(!this._state.aviation.converted)return {ok:false,reason:'航空戦艦改装後に航空隊を自動配分できます。'};
+    const capacity=this.aviationCapacity(),kinds=Object.keys(AIRCRAFT_TYPES),base=Math.floor(capacity/kinds.length);
+    this._state.aviation.loadout=Object.fromEntries(kinds.map((kind,index)=>[kind,base+(index<capacity%kinds.length?1:0)]));
+    this.save();
+    return {ok:true,reason:`航空隊${capacity}機を迎撃機・爆撃機・戦闘機へ均等に配分しました。`,capacity,loadout:{...this._state.aviation.loadout}};
   }
 
   fuelCapacity() { return FUEL_CAPACITIES[this._state.upgrades.fuelTank] || FUEL_CAPACITIES[0]; }
