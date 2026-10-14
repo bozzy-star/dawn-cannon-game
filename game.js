@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { CannonAudio } from './audio.js?v=asahi-v9.0';
-import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore, AIRCRAFT_TYPES, AVIATION_CONVERSION, aviationStats, CONSUMPTION_MULTIPLIER } from './campaign.js?v=asahi-v9.0';
-import { createWarship } from './enemies.js?v=asahi-v9.0';
-import { NavalThreats, createAuxiliaryMounts, getAirBalance } from './threats.js?v=asahi-v9.0';
-import { Battlefield } from './battlefield.js?v=asahi-v9.0';
-import { buildFlagship } from './flagship.js?v=asahi-v9.0';
-import { NavalAviation } from './aviation.js?v=asahi-v9.0';
+import { CannonAudio } from './audio.js?v=asahi-v9.1';
+import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore, AIRCRAFT_TYPES, AVIATION_CONVERSION, aviationStats, CONSUMPTION_MULTIPLIER } from './campaign.js?v=asahi-v9.1';
+import { createWarship } from './enemies.js?v=asahi-v9.1';
+import { NavalThreats, createAuxiliaryMounts, getAirBalance } from './threats.js?v=asahi-v9.1';
+import { Battlefield } from './battlefield.js?v=asahi-v9.1';
+import { buildFlagship } from './flagship.js?v=asahi-v9.1';
+import { NavalAviation } from './aviation.js?v=asahi-v9.1';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -911,7 +911,8 @@ function updateHUD(){
 
 function updateTacticalHUD(){
   const state=campaign.state,stock=Object.fromEntries(Object.keys(state.stock).map(k=>[k,battleSupply(k)])),u=battleUpgrades(),t=threats.stats,contacts=threats.contacts.filter(c=>c.detected),area=AREAS[activeArea-1];
-  $('supplyHUD').textContent=`主砲 ${stock.shell} · 対空 ${stock.aa} · 対潜 ${stock.asw} · 燃料 ${stock.fuel}/${campaign.fuelCapacity()}${tutorial&&Object.keys(tutorial.stock).length?' · 訓練貸与込み':''}`;
+  const trainingFuel=tutorial?.loans.stock.fuel||0;
+  $('supplyHUD').textContent=`主砲 ${stock.shell} · 対空 ${stock.aa} · 対潜 ${stock.asw} · 燃料 ${stock.fuel}/${campaign.fuelCapacity()+trainingFuel}${tutorial&&Object.keys(tutorial.stock).length?' · 訓練貸与込み':''}`;
   $('threatStatus').textContent=`航空 ${t.airborne}機 · 撃墜 ${stats.airKills||0}機 · 潜水 ${contacts.length} · 機雷 ${t.mines}`;
   $('tactical').classList.toggle('hidden',uiMode!=='battle'&&uiMode!=='pause');
   const a=state.aviation,wing=aviation.stats,hybrid=a.converted&&a.hullMode==='hybrid';
