@@ -12,6 +12,7 @@ export const ENEMY_TYPES = freeze({
   destroyer: { name: '駆逐艦', hp: 4, speed: 2.9, score: 180, attackInterval: 14, damage: 5, radius: 4, scale: 1 },
   cruiser: { name: '巡洋艦', hp: 10, speed: 2.1, score: 420, attackInterval: 16, damage: 8, radius: 5.8, scale: 1.35 },
   battleship: { name: '戦艦', hp: 24, speed: 1.2, score: 900, attackInterval: 20, damage: 13, radius: 7.8, scale: 1.8 },
+  ramship: { name:'突撃艦',hp:6,speed:4.2,score:360,attackInterval:999,damage:0,radius:4.2,scale:1.05,ramming:true,ramDamageFraction:.8 },
   carrier: carrier(9, 20, 1100),
   carrier3: carrier(9, 20, 1100),
   carrier5: carrier(15, 29, 1450),
@@ -64,17 +65,17 @@ export const WORLD = freeze({
 const missions = [
   // part, name, lat, lon, encounter, equipment prerequisites, story objective
   [1,'菊花反攻作戦',34,136,'opening',{},'沈黙していた朝日が初出撃する。沿岸を封鎖する駆逐艦だけの2波を破り、南への出発点を確保せよ。'],
-  [1,'南天列島防衛戦',27,129,'airstorm',{aa:1,special:2},'爆撃機120機が2波に分かれて来襲する。高角砲・龍神砲・蓄電槽を準備し、龍神弾を10単位積載せよ。各波で龍神砲を1回ずつ使用して防衛線を守れ。'],
-  [1,'青蓮島沖海戦',24,122,'cruiser',{},'巡洋艦隊が狭い航路を守っている。徹甲弾を整え、南天列島と青蓮島を結ぶ補給線を回復せよ。'],
-  [1,'翡翠湾海戦',11,126,'lightcarrier',{aa:1,radar:1},'湾口の軽空母は9機ずつ爆撃機を送り出す。遠距離レーダーで先手を取り、高角砲で航空攻撃を退けよ。'],
+  [1,'南天列島防衛戦',27,129,'airstorm',{},'龍神砲の発射訓練。爆撃機は計120機（第1波60・第2波60）。敵機の接近と発射合図に合わせ、各波で龍神砲を1回ずつ使え。高角砲・龍神砲・訓練弾はこの出撃だけ貸与され、購入不要。'],
+  [1,'青蓮島沖海戦',24,122,'aswTraining',{},'対潜訓練。貸与ソナーをONにして2000 m以内の潜水艦を探知し、接触を選択せよ。1200 m以内まで接近したら、位置と深度を合わせて爆雷を投下する。ソナー・爆雷・訓練弾の購入は不要。'],
+  [1,'翡翠湾海戦',11,126,'lightcarrier',{aa:1,radar:1},'湾口の軽空母は最大9機の搭載枠を持ち、爆撃機を送り出す。遠距離レーダーで先手を取り、高角砲で航空攻撃を退けよ。'],
   [1,'翠洋制海戦',9,114,'submarine',{aa:1,sonar:1,asw:1},'翠洋では潜水艦が船団を待ち伏せる。パッシブソナーを作動させ、雷跡と探知位置から爆雷を投下せよ。'],
   [1,'海門港決戦',1.4,104,'mixed',{aa:1,radar:1,sonar:1,asw:1},'海門港の守備艦隊を突破し、第一防衛圏を完成させよ。航空攻撃と潜水艦の両方に備え、南天諸邦への補給拠点を確保する。'],
   [2,'火環海戦',-6,112,'battleship',{weapon:2,aa:1,sonar:1,asw:1},'火環海には重装甲戦艦が待つ。炸裂弾を用意し、敵の南方防衛線を崩せ。'],
-  [2,'蒼火海戦',-2,122,'mediumcarrier',{aa:2,radar:1},'15機ずつ発艦する中型空母が接近する。高角砲と対空機関砲を併用し、艦隊の上空を守れ。'],
+  [2,'蒼火海戦',-2,122,'mediumcarrier',{aa:2,radar:1},'最大15機の搭載枠を持つ中型空母が接近する。高角砲と対空機関砲を併用し、艦隊の上空を守れ。'],
   [2,'朱礁港奪取戦',-4,152,'mediumsub',{aa:2,sonar:1,asw:2},'朱礁港を守る潜水艦隊を対潜魚雷で排除せよ。南方の艦隊補給と飛行場を取り戻す。'],
   [2,'珊瑚門奪取戦',-9,147,'deepmixed',{aa:2,sonar:2,asw:2},'珊瑚門へ近づく敵潜水艦をアクティブソナーで探知せよ。2000 m以内の位置が判明し、接近すると探信音が速くなる。'],
   [2,'碧環海戦',-8,160,'mediumcarrier',{aa:2,radar:1},'島々の間に展開する空母と護衛艦を撃破する。航空機を減らし、次の島への上陸航路を確保せよ。'],
-  [2,'緑冠島奪取戦',-10,160,'heavycarrier',{aa:3,radar:1},'30機ずつ爆撃機を出す重空母が登場する。特殊対空弾を備え、南天の防衛圏を完成させよ。'],
+  [2,'緑冠島奪取戦',-10,160,'heavycarrier',{aa:3,radar:1},'最大30機の搭載枠を持つ重空母が登場する。特殊対空弾を備え、南天の防衛圏を完成させよ。'],
   [3,'星環島転進',7,134,'heavycarrier',{aa:3,radar:2},'西の海でチーナ帝国が反攻を始めた。広域レーダーで重空母を捉え、帰還航路を切り開け。'],
   [3,'月門島攻略',13,145,'deepmixed',{aa:3,sonar:2,asw:2,radar:2},'月門島の哨戒線を突破する。航空攻撃を防ぎながら、暗い海の潜水艦を探知せよ。'],
   [3,'小暁諸島沖海戦',27,142,'homingsub',{aa:3,sonar:2,asw:3},'素早い潜水艦が帰還路を阻む。誘導対潜魚雷を用意し、回避する敵を追跡せよ。'],
@@ -103,6 +104,7 @@ const missions = [
 const encounters = {
   opening: [['destroyer','destroyer'], ['destroyer','destroyer','destroyer']],
   airstorm: [['destroyer','destroyer'], ['destroyer','cruiser','destroyer']],
+  aswTraining: [['destroyer','submarine'], ['submarine','destroyer']],
   cruiser: [['destroyer','cruiser','destroyer'], ['cruiser','destroyer','cruiser']],
   lightcarrier: [['destroyer','carrier3','cruiser'], ['carrier3','cruiser','carrier3']],
   submarine: [['destroyer','submarine','cruiser'], ['submarine','carrier3','submarine']],
@@ -130,6 +132,14 @@ const shorelineTargets = (part, duration) => {
   return {duration,batteries:2+part,tanks:1+part,airfields:1+(part>=3?1:0),difficulty:1+(part-1)*.45,landingStrength:100,targets};
 };
 
+// Tutorial supplies are separate battle-only reserves. Reading these values
+// never equips, pays, repairs or replenishes the persistent campaign state.
+export const TUTORIALS=freeze({
+  1:{kind:'gunnery',title:'第1教習・砲撃',objectives:['海面をドラッグして敵艦へ照準を合わせる。','動く艦の進行方向を見越して主砲を発射する。','弱点への着弾と装填のタイミングを覚える。'],loans:{upgrades:{},stock:{}}},
+  2:{kind:'dragon',title:'第2教習・龍神砲',objectives:['第1波60機の接近を待つ。','発射合図に合わせて訓練用龍神砲を発射する。','第2波60機にも残る訓練弾を使う。'],loans:{upgrades:{aa:1,special:2},stock:{shell:180,aa:240,dragon:10,fuel:900}}},
+  3:{kind:'asw',title:'第3教習・ソナーと爆雷',objectives:['貸与ソナーをONにして潜水艦を探知する。','探知した潜水艦の接触を選択し、距離と深度を確認する。','1200 m以内で位置と深度を合わせ、爆雷を投下する。'],loans:{upgrades:{sonar:2,asw:1},stock:{shell:180,asw:60,fuel:900}}},
+});
+
 export const AREAS = freeze(missions.map(([part, name, lat, lon, encounter, required, originalBriefing], index) => {
   const id=index+1;
   const distance = encounter === 'opening' ? 145 : Math.min(400, 156 + index * 6);
@@ -146,6 +156,8 @@ export const AREAS = freeze(missions.map(([part, name, lat, lon, encounter, requ
     requires.asw=Math.max(requires.asw||0,part>=4?4:part>=3?3:1);
   }
   const waves=encounters[encounter].map((kinds,wave)=>formation(kinds,distance+wave*24,44,depth));
+  if(id===3)for(const [wave,formation]of waves.entries())for(const enemy of formation)if(enemy.kind==='submarine')Object.assign(enemy,{x:wave===0?-28:28,z:-100,depth:5});
+  if(id===4)waves[0].push({kind:'ramship',x:76,z:-distance-34});
   if(isLanding&& !waves.flat().some(e=>e.kind==='submarine')) waves[1].push({kind:'submarine',x:55,z:-distance-38,depth});
   const weatherName=id===1?'clear':weatherCycle[(index+part)%weatherCycle.length];
   const weather={timeOfDay:['dawn','day','night'][index%3],weather:weatherName,
@@ -167,7 +179,8 @@ export const AREAS = freeze(missions.map(([part, name, lat, lon, encounter, requ
     fogTint:[0xa5b6c2,0x9eb4bf,0xb0adb0,0x9cabb8,0xc2b7a8][part-1],
     airRaid:encounter==='airstorm'?[60,60]:[0,0],
     requiredDragonUses:encounter==='airstorm'?2:0,waves,
-    recommendations:{...requires,...(weatherName==='rain'?{radar:Math.min(3,Math.max(1,requires.radar||part-1))}:{}),...(id>=3?{reload:Math.min(3,Math.ceil(part/2)),armor:Math.min(3,Math.ceil(part/2))}:{})},
+    tutorial:TUTORIALS[id]||null,
+    recommendations:TUTORIALS[id]?{}:{...requires,...(weatherName==='rain'?{radar:Math.min(3,Math.max(1,requires.radar||part-1))}:{}),...(id>=3?{reload:Math.min(3,Math.ceil(part/2)),armor:Math.min(3,Math.ceil(part/2))}:{})},
   };
 }));
 
@@ -205,7 +218,7 @@ export const UPGRADES = freeze({
   ],
   special: [
     { kind: 'special', level: 1, name: '龍神砲', description: '装備中の主砲の出力を収束し、出現中の海上の敵艦と航空機を一掃する。龍神弾5単位を消費。出撃ごとに1回。潜水艦には対潜兵装が必要。', price: 2000, unlockArea: 2 },
-    { kind: 'special', level: 2, name: '龍神砲・蓄電槽', description: '一度の出撃で最大2回使用可能。南天列島防衛戦では各波で1回ずつ使う。龍神弾が必要。', price: 1500, unlockArea: 2 },
+    { kind: 'special', level: 2, name: '龍神砲・蓄電槽', description: '一度の出撃で最大2回使用可能。使用枠は全波で共有し、1回につき龍神弾5単位が必要。', price: 1500, unlockArea: 2 },
   ],
   aa: [
     { kind: 'aa', level: 1, name: '高角砲', description: '中・長距離の爆撃機を自動で迎撃する。対空弾を消費し、主砲の照準操作はそのまま続けられる。', price: 600, unlockArea: 2 },
@@ -712,6 +725,11 @@ export class CampaignStore {
     return true;
   }
 
+  tutorialEquipment(areaId) {
+    const loans=Number.isInteger(areaId)?AREAS[areaId-1]?.tutorial?.loans:null;
+    return {upgrades:{...(loans?.upgrades||{})},stock:{...(loans?.stock||{})}};
+  }
+
   requirements(areaId) {
     const area=AREAS[areaId-1];
     if(!area)return {};
@@ -720,6 +738,8 @@ export class CampaignStore {
     const hasSubmarine=fleet.some(enemy=>enemy.kind==='submarine');
     if(hasAircraft)requirements.aa=Math.max(1,requirements.aa||0);
     if(hasSubmarine){requirements.sonar=Math.max(1,requirements.sonar||0);requirements.asw=Math.max(1,requirements.asw||0);}
+    const loans=this.tutorialEquipment(areaId).upgrades;
+    for(const[kind,level]of Object.entries(loans))if(level>=(requirements[kind]||0))delete requirements[kind];
     return requirements;
   }
 
@@ -728,20 +748,22 @@ export class CampaignStore {
     if(areaId>this._state.unlockedArea)return {ok:false,reason:'前の海域を制圧して航路を開いてください。'};
     if(this._state.hull<35)return {ok:false,reason:'船体の損傷が大きく出撃できません。港で修理し、船体状態35%以上にしてください。'};
     const area=AREAS[areaId-1],requirements=this.requirements(areaId),fleet=area.waves.flat();
-    const hasAircraft=Boolean(requirements.aa),hasSubmarine=fleet.some(enemy=>enemy.kind==='submarine');
+    const hasAircraft=area.airRaid.some(count=>count>0)||fleet.some(enemy=>(ENEMY_TYPES[enemy.kind].launchCount||0)>0)||Boolean(area.shoreAssault?.airfields);
+    const hasSubmarine=fleet.some(enemy=>enemy.kind==='submarine');
     const missing=Object.entries(requirements).filter(([kind,level])=>!own(GUN_FIELDS,kind)&&this._state.upgrades[kind]<level).map(([kind,level])=>UPGRADES[kind][level-1].name);
     const gunRequirements=Object.entries(requirements).filter(([kind])=>own(GUN_FIELDS,kind));
     const readyGun=this._state.guns.some((_,index)=>this.gunMeetsRequirements(index,requirements));
     if(!readyGun)missing.push(...gunRequirements.map(([kind,level])=>UPGRADES[kind][level-1].name));
     if(missing.length)return {ok:false,reason:`必須兵装：${missing.join('・')}を港で準備してください。${!readyGun?'主砲関連は同じ1門が必要条件を満たせば出撃できます。全門の強化は不要です。':''}${hasSubmarine?'潜水艦にはソナーと対潜兵装が必要です。':hasAircraft?'航空隊には対空兵装が必要です。':''}`,missing:requirements};
-    const stock=this._state.stock;
+    const loans=this.tutorialEquipment(areaId).stock;
+    const stock=Object.fromEntries(SUPPLY_KINDS.map(kind=>[kind,this._state.stock[kind]+(loans[kind]||0)]));
     if(stock.shell<30)return {ok:false,reason:'主砲弾を30単位以上補給してください。1発で5単位を消費します。'};
     if(stock.fuel<100)return {ok:false,reason:'燃料を100以上補給してください。通常航行は毎秒5を消費します。'};
     if(hasAircraft&&stock.aa<100)return {ok:false,reason:'航空隊に備えて対空弾を100単位以上補給してください。'};
     if(hasSubmarine&&stock.asw<15)return {ok:false,reason:'潜水艦に備えて対潜弾を15単位以上補給してください。'};
     const dragonRequired=area.requiredDragonUses*CONSUMPTION_MULTIPLIER;
     if(stock.dragon<dragonRequired)return {ok:false,reason:`この作戦には龍神弾が${dragonRequired}単位必要です。龍神砲1射で5単位を消費します。`};
-    return {ok:true,reason:'兵装・船体・補給を確認しました。出撃可能です。'};
+    return {ok:true,reason:area.tutorial?.kind==='gunnery'?'砲撃教習は通常の主砲弾と燃料で出撃します。新しいパーツの購入は不要です。':area.tutorial?'教習用兵装・訓練弾をこの出撃だけ貸与します。購入不要で出撃できます。':'兵装・船体・補給を確認しました。出撃可能です。'};
   }
 
   settle(areaId,stats={},won=false) {

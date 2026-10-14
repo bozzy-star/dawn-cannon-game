@@ -3,11 +3,11 @@ export function createAviationDeck(kit) {
   const {THREE,steel,darkSteel,edgeSteel,wood,black,box,cylinder,mesh}=kit;
   const group=new THREE.Group();group.name='hybrid-aviation-deck';
   const ownedMaterials=[],ownedTextures=[];
-  const safety=new THREE.MeshStandardMaterial({color:0xc6b78b,roughness:.8,metalness:.2});
+  const safety=new THREE.MeshStandardMaterial({color:0xbcb58f,roughness:.8,metalness:.2});
   const planeMaterials={
-    interceptor:new THREE.MeshStandardMaterial({vertexColors:true,color:0x9eabad,metalness:.4,roughness:.63}),
-    bomber:new THREE.MeshStandardMaterial({vertexColors:true,color:0xb0aaa0,metalness:.35,roughness:.67}),
-    fighter:new THREE.MeshStandardMaterial({vertexColors:true,color:0x8b9da2,metalness:.42,roughness:.6}),
+    interceptor:new THREE.MeshStandardMaterial({vertexColors:true,color:0x7a8d88,metalness:.26,roughness:.65}),
+    bomber:new THREE.MeshStandardMaterial({vertexColors:true,color:0x918e80,metalness:.23,roughness:.68}),
+    fighter:new THREE.MeshStandardMaterial({vertexColors:true,color:0x728692,metalness:.28,roughness:.64}),
   };
   ownedMaterials.push(safety,...Object.values(planeMaterials));
   // The visible flight deck is higher than the aft guns and wider than the hull.

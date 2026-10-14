@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>弩級戦艦 朝日 | 一門から育てる戦艦</title>
-<link rel="stylesheet" href="./style.css?v=asahi-v8.0">
+<link rel="stylesheet" href="./style.css?v=asahi-v9.0">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
 </head>
 <body>
@@ -44,8 +44,9 @@
 <div class="aim-tip"><i>↔</i><span>海面をドラッグして照準</span><small>PC：ドラッグ / 矢印キー</small></div>
 <div class="trigger"><button id="special" disabled><span>全主砲連結</span><b>龍神砲</b><small>未装備</small></button><button id="salvo"><span>3門</span><b>斉射</b></button><button id="fire"><small>主砲</small><b>発射</b><span>長押しで連続</span></button></div>
 </div>
+<aside id="tutorialGuide" class="tutorial-guide hidden" role="status"><small>ASAHI / 戦闘教習</small><h2 id="tutorialTitle"></h2><p id="tutorialBody"></p><button id="tutorialAction" class="hidden"></button></aside>
 <section id="start" class="overlay">
-<div class="intro"><small class="eyebrow">ASAHI / ONE GUN, A LONG VOYAGE · v8</small><h1>弩級戦艦<span>朝日</span></h1><p class="lead">一門の主砲から、海を切り開け。</p>
+<div class="intro"><small class="eyebrow">ASAHI / ONE GUN, A LONG VOYAGE · v9</small><h1>弩級戦艦<span>朝日</span></h1><p class="lead">一門の主砲から、海を切り開け。</p>
 <p class="starting-hull">新規開始：通常戦艦・主砲1門・航空隊なし</p>
 <div class="instructions"><span><b>01</b>通常戦艦で出航し、主砲を1門から4門へ強化</span><span><b>02</b>自動高角砲・旋回・対潜兵器を購入して育成</span><span><b>03</b>第一部の制圧後、港で航空戦艦への改装を解放</span></div>
 <button id="startButton">通常戦艦・主砲1門で出航 →</button><button id="newVoyageButton" class="secondary hidden">通常戦艦・主砲1門で新しい航海</button><p id="saveSummary" class="save-summary"></p><p id="startMessage" role="status"></p><p class="note">航空戦艦と航空隊は、海域を進めてから購入する強化です。<br>スマホは横向き推奨 · 音あり<br>PC：ドラッグ照準 / Space 発射 / F 斉射 / G 龍神砲<br>Q・E 旋回 / X 増速 / 高角砲は自動<br>V ソナー / H 対潜 / R 接触 / C 航空隊 / 1–4 主砲</p></div>
@@ -58,7 +59,7 @@
 <div class="condition-bar"><div><span>整備状況</span><strong id="condition">100%</strong></div><button id="repair">船体を修理</button><p id="repairNote">船体の損傷は次の出撃にも残ります。</p><button id="portInspect" class="secondary">船体を見る</button></div>
 <nav class="harbor-tabs"><button id="mapTab" class="active">作戦地図</button><button id="shopTab">強化パーツ</button><button id="aviationTab">艦体改装 <small>NEW</small></button><button id="supplyTab">消耗品・補給</button></nav>
 <div id="worldView"><div class="map-switch" role="group" aria-label="地図の表示範囲"><button id="mapWorld" class="active" aria-pressed="true">全体マップ</button><button id="mapPart" aria-pressed="false">各部を拡大</button></div><div id="worldMap"></div><div class="map-legend"><span>■ 暁和国</span><span>■ 制圧圏</span><span>● 未制圧</span><span>● 選択中</span></div><nav id="partTabs" class="part-tabs"></nav><p id="partStory"></p></div>
-<div id="mapView" class="harbor-body"><div id="mapList" class="map-list"></div><div class="area-detail"><small id="areaNumber"></small><h3 id="areaName"></h3><p id="briefing"></p><div id="enemyList" class="enemy-list"></div><div id="areaRecord" class="area-record"></div><div id="loadout" class="loadout"></div><p id="deploymentStatus"></p><button id="deploy">この海域へ出撃 →</button></div></div>
+<div id="mapView" class="harbor-body"><div id="mapList" class="map-list"></div><div class="area-detail"><small id="areaNumber"></small><h3 id="areaName"></h3><p id="briefing"></p><div id="enemyList" class="enemy-list"></div><p id="airBalanceNote" class="area-record hidden" role="status"></p><div id="areaRecord" class="area-record"></div><div id="loadout" class="loadout"></div><p id="deploymentStatus"></p><button id="deploy">この海域へ出撃 →</button></div></div>
 <div id="shopView" class="harbor-body hidden"><div id="gunShopCards"></div><div id="shopCards" class="shop-cards"></div><p class="shop-note">赤いパーツは選択中の作戦に必須、金色は攻略におすすめです。主砲は1～4門。弾種・主砲機構・給弾を各門ごとに強化し、必須主砲と機構は同じ門に揃えます。装甲・燃料庫・スクリューは3段階。高角砲は常時自動、最終レーダーで管制迎撃。パッシブソナーON中は装填時間が2倍。龍神砲は蓄電槽で1出撃2回まで、1射で龍神弾5単位を使います。</p><button id="backToMap" class="secondary">作戦地図に戻る</button></div>
 <div id="aviationView" class="hidden">
 <figure class="aviation-hero"><img src="./assets/asahi-hybrid-v7.png" alt="前部の主砲と後部の飛行甲板を持つ航空戦艦朝日の新しい改装イラスト" loading="lazy"><figcaption>航空戦艦 朝日 · 改装イメージ</figcaption></figure>
@@ -68,11 +69,11 @@
 <p class="shop-note">新規の航空戦艦改装は第一部の制圧後、第7海域の解放時に購入できます。序盤は通常戦艦を強化して進みます。改装後も主砲1～4門の兵装はそのまま使えます。標準戦艦へ戻しても、購入した航空設備と機体強化は保存されます。潜水艦には従来のソナーと対潜兵装を準備してください。</p>
 </div>
 <div id="supplyView" class="hidden"><p class="shop-note">主砲弾・対空弾・対潜弾・龍神弾は1射で5単位、斉射は装備中の1門につき5単位。通常航行の燃料は毎秒5、回避でも追加消費します。長い作戦には積載量を増やし、弾薬・燃料切れによる撤退を防いでください。</p><div id="supplyCards" class="shop-cards"></div><div class="emergency-supply"><button id="emergencySupply">緊急復帰を受ける</button><p id="emergencyStatus"></p></div></div>
-<div id="shopMessage" role="status"></div><footer class="harbor-foot"><span><b class="version-badge">v8 · 一門から育てる戦艦</b> <span id="saveStatus">進行・装備・補給・船体状態はこのブラウザに保存されます</span></span><button id="voyageMenu">航海の記録</button><button id="resetProgress">進行をリセット</button></footer></div></section>
+<div id="shopMessage" role="status"></div><footer class="harbor-foot"><span><b class="version-badge">v9 · 航過戦と戦闘教習</b> <span id="saveStatus">進行・装備・補給・船体状態はこのブラウザに保存されます</span></span><button id="voyageMenu">航海の記録</button><button id="resetProgress">進行をリセット</button></footer></div></section>
 <section id="voyagePanel" class="overlay hidden"><div class="dialog voyage-dialog"><small>VOYAGE LOG</small><h2>航海の記録</h2><p>新しい航海は通常戦艦・主砲1門から。現在の作戦を保存して切り替えるので、以前の装備と進行へ戻せます。</p><div id="voyageList"></div><p id="voyageMessage" role="status"></p><button id="voyageFreshButton">通常戦艦・主砲1門で新しい航海</button><button id="closeVoyage" class="secondary">港に戻る</button></div></section>
 <section id="resetConfirm" class="overlay hidden"><div class="dialog"><small>NEW CAMPAIGN</small><h2>進行をリセット</h2><p>制圧済みの海域・資金・購入した装備を初期状態に戻します。</p><button id="cancelReset">戻る</button><button class="secondary" id="confirmReset">進行を削除して最初から</button></div></section>
 <div id="rotate"><span>↻</span><p>スマホを横向きにすると<br>海上の敵を見渡して遊べます</p></div>
 <div id="loading">海域を準備しています…</div>
 </main>
-<script type="module" src="./game.js?v=asahi-v8.0"></script>
+<script type="module" src="./game.js?v=asahi-v9.0"></script>
 </body></html>

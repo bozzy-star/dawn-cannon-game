@@ -1,4 +1,4 @@
-import { createAviationDeck } from './aviation-deck.js?v=asahi-v8.0';
+import { createAviationDeck } from './aviation-deck.js?v=asahi-v9.0';
 // Code-built naval geometry: long bow, pagoda bridge and a shared expanding turret.
 export function buildFlagship(kit) {
   const {THREE,steel:baseSteel,darkSteel:baseDarkSteel,edgeSteel:baseEdgeSteel,wood:baseWood,black,bronze,box,cylinder,ring,mesh}=kit;
@@ -23,16 +23,17 @@ export function buildFlagship(kit) {
       ctx.fillStyle='#dbc49833';ctx.fillRect(x+5,0,1,256);ctx.fillStyle='#63523e44';ctx.fillRect(x+11,0,1,256);}
   });
   plateMap.repeat.set(2,1);plankMap.repeat.set(1,1);
-  const steel=baseSteel.clone();steel.map=plateMap;steel.color.setHex(0xc0c5c5);steel.roughness=.67;steel.metalness=.24;
-  const darkSteel=baseDarkSteel.clone();darkSteel.map=plateMap;darkSteel.color.setHex(0x818b8f);darkSteel.roughness=.72;darkSteel.metalness=.19;
-  const edgeSteel=baseEdgeSteel.clone();edgeSteel.map=plateMap;edgeSteel.color.setHex(0xd8dbd5);edgeSteel.roughness=.61;edgeSteel.metalness=.25;
-  const wood=baseWood.clone();wood.map=plankMap;wood.color.setHex(0xd8c7a4);wood.roughness=.88;
+  const steel=baseSteel.clone();steel.map=plateMap;steel.color.setHex(0x91a5b0);steel.roughness=.62;steel.metalness=.24;
+  const darkSteel=baseDarkSteel.clone();darkSteel.map=plateMap;darkSteel.color.setHex(0x637b8a);darkSteel.roughness=.70;darkSteel.metalness=.19;
+  const edgeSteel=baseEdgeSteel.clone();edgeSteel.map=plateMap;edgeSteel.color.setHex(0xb7c6cc);edgeSteel.roughness=.58;edgeSteel.metalness=.25;
+  const wood=baseWood.clone();wood.map=plankMap;wood.color.setHex(0xa7b1be);wood.roughness=.86;
+  for(const material of [steel,darkSteel,edgeSteel,wood]){material.vertexColors=true;material.envMapIntensity=.55;}
   ownedMaterials.push(steel,darkSteel,edgeSteel,wood);
   const ship=new THREE.Group();ship.name='Asahi';
   const detail=new THREE.Group();detail.name='ship-details';ship.add(detail);
   const standardAft=new THREE.Group();standardAft.name='battleship-aft-equipment';ship.add(standardAft);
   const red=new THREE.MeshStandardMaterial({color:0x782f27,roughness:.87,metalness:.1});
-  const glass=new THREE.MeshStandardMaterial({color:0x07181f,metalness:.08,roughness:.32});
+  const glass=new THREE.MeshStandardMaterial({color:0x030b11,metalness:.02,roughness:.25,envMapIntensity:.18});
   ownedMaterials.push(red,glass);
   const plan=new THREE.Shape();plan.moveTo(0,-42);
   plan.bezierCurveTo(-3,-40,-9,-25,-10.6,-10);plan.lineTo(-11.2,63);
@@ -169,14 +170,30 @@ export function buildFlagship(kit) {
     const ratio=(value,offset,extent)=>(value-offset)/Math.max(.001,extent);
     for(let i=0;i<p.count;i++){
       if(object.material===wood){
-        if(Math.abs(n?.getZ(i)||0)>.70&&geometry.type!=='BoxGeometry')uv.push((p.getX(i)-min.x)/7.8,(p.getY(i)-min.y)/18);
-        else uv.push((p.getX(i)-min.x)/7.8,(p.getZ(i)-min.z)/18);
+        if(Math.abs(n?.getZ(i)||0)>.70&&geometry.type!=='BoxGeometry')uv.push((p.getX(i)-min.x)/10.8,(p.getY(i)-min.y)/26);
+        else uv.push((p.getX(i)-min.x)/10.8,(p.getZ(i)-min.z)/26);
       }
       else if(Math.abs(n?.getZ(i)||0)>.70)uv.push(ratio(p.getX(i),min.x,size.x),ratio(p.getY(i),min.y,size.y));
       else if(Math.abs(n?.getY(i)||0)>.70)uv.push(ratio(p.getX(i),min.x,size.x),ratio(p.getZ(i),min.z,size.z));
       else uv.push(ratio(p.getY(i),min.y,size.y),ratio(p.getZ(i),min.z,size.z));
     }
     geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  });
+  // Paint a restrained ambient shade into existing vertices. Under-platform
+  // faces stay dark even when a bright sky would otherwise flatten the bridge.
+  // This adds no meshes, lights, texture fetches or post-processing passes.
+  ship.updateMatrixWorld(true);
+  const shadedGeometries=new Set(),paintMaterials=new Set([steel,darkSteel,edgeSteel,wood]);
+  ship.traverse(object=>{
+    const geometry=object.geometry;if(!object.isMesh||!paintMaterials.has(object.material)||shadedGeometries.has(geometry))return;
+    shadedGeometries.add(geometry);const normals=geometry.getAttribute('normal');if(!normals)return;
+    const matrix=new THREE.Matrix3().getNormalMatrix(object.matrixWorld),normal=new THREE.Vector3(),colors=[];
+    for(let i=0;i<normals.count;i++){
+      normal.set(normals.getX(i),normals.getY(i),normals.getZ(i)).applyNormalMatrix(matrix);
+      const shade=Math.max(.46,Math.min(.98,.74+.24*Math.max(0,normal.y)-.28*Math.max(0,-normal.y)));
+      colors.push(shade*.985,shade,Math.min(1,shade*1.015));
+    }
+    geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
   });
   ship.userData.dimensions={width:22.4,length:133,bow:-42,stern:91};
   let hullMode='battleship',capacityLevel=0;
@@ -215,8 +232,8 @@ export function buildFlagship(kit) {
       if(source.bump?.isTexture){material.bumpMap=source.bump;material.bumpScale=.026;}
       material.needsUpdate=true;
     }
-    if(source.steel?.isTexture){steel.color.setHex(0xf1f4f4);darkSteel.color.setHex(0xc4ccce);edgeSteel.color.setHex(0xffffff);}
-    if(source.wood?.isTexture){wood.map=source.wood;wood.color.setHex(0xfff7e8);wood.needsUpdate=true;}
+    if(source.steel?.isTexture){steel.color.setHex(0x91a5b0);darkSteel.color.setHex(0x637b8a);edgeSteel.color.setHex(0xb7c6cc);}
+    if(source.wood?.isTexture){wood.map=source.wood;wood.color.setHex(0xa7b1be);wood.needsUpdate=true;}
     // Supplied textures are owned by the caller. The original fallback maps
     // remain listed here so they can be disposed independently at teardown.
     ship.userData.surfaceMaps={steel:steel.map?.uuid,wood:wood.map?.uuid};

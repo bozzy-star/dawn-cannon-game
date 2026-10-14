@@ -6,6 +6,28 @@ const MAX_AIRCRAFT = 120;
 const ORIGIN = new THREE.Vector3(0, 0, 0);
 const clamp = THREE.MathUtils.clamp;
 
+/** Enemy flight pressure is chosen once per deployment from its equipment.
+ * Carrier launchCount remains its physical capacity; it is not a difficulty
+ * multiplier, and upgrading AA still improves interception speed and reach.
+ */
+export function getAirBalance(area, upgrades = {}) {
+  if (!area) return { configured: false, areaId: null, part: 1, aaLevel: 0, radarLevel: 0,
+    maxAirborne: MAX_AIRCRAFT, launchFactor: 1, launchInterval: 30, launchJitter: 8,
+    missionBudget: null, maxPasses: null };
+  const part = clamp(Math.floor(Number(area.part) || 1), 1, 5);
+  const aaLevel = clamp(Math.floor(Number(upgrades.aa) || 0), 0, 3);
+  const radarLevel = clamp(Math.floor(Number(upgrades.radar) || 0), 0, 3);
+  if (Number(area.id) === 2) return { configured: true, areaId: 2, part, aaLevel, radarLevel,
+    maxAirborne: 60, launchFactor: 1, launchInterval: 44, launchJitter: 4,
+    missionBudget: 120, maxPasses: 1 };
+  const caps = [[4,4,5,6,6], [6,8,10,12,14], [9,14,18,22,26], [12,20,28,36,48]];
+  const radarControl = aaLevel === 3 && radarLevel === 3;
+  return { configured: true, areaId: Number(area.id) || null, part, aaLevel, radarLevel,
+    maxAirborne: Math.min(MAX_AIRCRAFT, Math.round(caps[aaLevel][part - 1] * (radarControl ? 1.25 : 1))),
+    launchFactor: radarControl ? 1 : [.30,.45,.65,.85][aaLevel],
+    launchInterval: [48,44,38,32][aaLevel], launchJitter: 4, missionBudget: null, maxPasses: null };
+}
+
 function combinedAircraftGeometry() {
   // One merged, vertex-coloured model keeps 120 aircraft in one draw call.
   // Rounded silver fuselage, tapered wings, four radial-engine nacelles and a
@@ -71,12 +93,13 @@ export class NavalThreats {
     getUpgrades = () => ({}), getAim = () => ({ origin: ORIGIN, direction: new THREE.Vector3(0, 0, -1), targetPoint: new THREE.Vector3(0, -6, -100) }),
     getManeuver = () => ({ position: ORIGIN, velocity: ORIGIN, evading: false, evadeWindow: false }),
     getWeather = () => ({ radarFactor: 1, windX: 0, windZ: 0 }),
+    getArea = () => null,
   }) {
     this.scene = scene; this.audio = audio;
     this.onDamage = onDamage; this.onAirKill = onAirKill; this.onSubKill = onSubKill;
     this.onEffect = onEffect; this.consume = consume;
     this.getUpgrades = getUpgrades; this.getAim = getAim; this.onAirSpotted = onAirSpotted;
-    this.getManeuver = getManeuver; this.getWeather = getWeather;
+    this.getManeuver = getManeuver; this.getWeather = getWeather; this.getArea = getArea;
     this.nextId = 1; this.shipRecords = new Map(); this.aircraft = [];
     this.bombs = []; this.torpedoes = []; this.projectiles = []; this.tracers = []; this.mines = [];
     this.pending = 0; this.airKills = 0; this.sonarOn = false;
@@ -123,17 +146,28 @@ export class NavalThreats {
     this.pending = 0; this.airKills = 0; this.aswCooldown = 0; this.aaCooldown = 0;
     this.pingCooldown = .6; this.time = 0; this.patrol = null; this.buoyDeployed = false;
     this.aaMode = 'auto'; this.aaTargetId = null; this.aaShots = 0;
+    this.airBalance = null; this.aircraftLaunched = 0; this.aircraftEscaped = 0;
     this.sonarOn = (this.getUpgrades().sonar || 0) >= 3;
     this.initialized = true;
   }
 
-  spawnAirRaid(count) {
-    const amount = clamp(Math.floor(Number(count) || 0), 0, 1000);
+  _airBalance() {
+    return this.airBalance ||= getAirBalance(this.getArea?.(), this.getUpgrades());
+  }
+  spawnAirRaid(count, { source = 'wave' } = {}) {
+    const balance = this._airBalance();
+    let amount = clamp(Math.floor(Number(count) || 0), 0, 1000);
+    if (balance.configured) {
+      if (source === 'carrier') amount = Math.ceil(amount * balance.launchFactor);
+      amount = Math.min(amount, Math.max(0, balance.maxAirborne - this.aircraft.length - this.pending));
+      if (balance.missionBudget !== null) amount = Math.min(amount, Math.max(0, balance.missionBudget - this.aircraftLaunched));
+    }
+    this.aircraftLaunched += amount;
     this.pending += amount; this._fillRaid(); if (amount) this.onAirSpotted(amount); return amount;
   }
   _fillRaid() {
     const ship = this._maneuver();
-    while (this.pending > 0 && this.aircraft.length < MAX_AIRCRAFT) {
+    while (this.pending > 0 && this.aircraft.length < this._airBalance().maxAirborne) {
       this.pending--;
       const n = this.nextId++;
       this.aircraft.push({ id: n, position: new THREE.Vector3(ship.position.x + (n % 12 - 5.5) * 8 + Math.random() * 5, 26 + (n % 5) * 3, ship.position.z - 300 - Math.random() * 100),
@@ -343,7 +377,10 @@ export class NavalThreats {
     return result;
   }
   get stats() {
+    const balance = this._airBalance();
     return { airborne: this.aircraft.length, pending: this.pending, airKills: this.airKills,
+      aircraftLaunched: this.aircraftLaunched, aircraftEscaped: this.aircraftEscaped,
+      airLimit: balance.maxAirborne, airBudget: balance.missionBudget,
       aaMode: 'auto', aaStatus: !(this.getUpgrades().aa > 0) ? '未配備' : this.getUpgrades().radar >= 3 ? '自動レーダー迎撃 / VT' : '自動迎撃',
       aaRange: Math.round(this._aaRange() * METRES_PER_UNIT), aaTargetId: this.aaTargetId, aaShots: this.aaShots, aaCooldown: this.aaCooldown, aaActive: this.projectiles.filter(p => p.kind === 'aa').length, mines: this.mines.length,
       sonarOn: this.sonarOn, sonarMode: this.sonarMode, sonarReady: this.buoyDeployed,
@@ -414,11 +451,15 @@ export class NavalThreats {
         a.position.addScaledVector(a.direction, a.speed * 1.25 * dt);
         a.position.y += (46 - a.position.y) * dt * .45;
         if (a.returnTime > 8 && a.position.distanceTo(ship.position) > 330) {
-          a.state = 'approach'; a.bombCount = 0; a.attackAge = 0;
+          if (this._airBalance().maxPasses === 1) a.state = 'departed';
+          else { a.state = 'approach'; a.bombCount = 0; a.attackAge = 0; }
         }
       }
       if (!a.velocity) a.velocity = new THREE.Vector3();
       a.velocity.copy(a.position).sub(before).divideScalar(dt);
+    }
+    for (let i = this.aircraft.length - 1; i >= 0; i--) if (this.aircraft[i].state === 'departed') {
+      this.aircraft.splice(i, 1); this.aircraftEscaped++;
     }
     this.aaCooldown = Math.max(0, this.aaCooldown - dt);
     const target = this._automaticTarget(upgrades, ship);
@@ -487,18 +528,17 @@ export class NavalThreats {
         if (launch) {
           r.launchTimer -= dt;
           if (r.launchTimer <= 0) {
-            const free = Math.max(0, MAX_AIRCRAFT - this.aircraft.length - this.pending);
-            const count = Math.min(launch, free);
             // Carrier deck departures begin at the carrier's actual position.
             const start = this.aircraft.length;
-            this.spawnAirRaid(count);
+            const count = this.spawnAirRaid(launch, { source: 'carrier' });
             for (let i = start; i < this.aircraft.length; i++) {
               const a = this.aircraft[i]; a.position.copy(e.root.position);
               a.position.x += (i - start - count / 2) * 3;
               a.position.z += 5; a.position.y = 18 + (i - start) * .6;
               a.launchDelay = (i - start) * .24; a.attackAge = 0;
             }
-            r.launchTimer = 30 + Math.random() * 8;
+            const balance = this._airBalance();
+            r.launchTimer = balance.launchInterval + Math.random() * balance.launchJitter;
           }
         }
         continue;

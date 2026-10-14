@@ -3,18 +3,19 @@
 export function createWarship(kind, kit) {
   const { THREE, steel, darkSteel, edgeSteel, deckMat, wood, black, bronze,
     box, cylinder, ring, mesh } = kit;
-  const key = ({ destroyer: 'destroyer', cruiser: 'cruiser', battleship: 'battleship', carrier: 'carrier', carrier3: 'carrier', carrier5: 'carrier', carrier10: 'carrier', submarine: 'submarine' })[kind] || 'destroyer';
+  const key = ({ destroyer: 'destroyer', cruiser: 'cruiser', battleship: 'battleship', ramship:'ramship', carrier: 'carrier', carrier3: 'carrier', carrier5: 'carrier', carrier10: 'carrier', submarine: 'submarine' })[kind] || 'destroyer';
   const sizes = {
     destroyer: { width: 2.7, length: 19, deck: 1.75, hull: 2.05, radius: 2.65 },
     cruiser: { width: 8, length: 25, deck: 2.25, hull: 2.55, radius: 4.7 },
     battleship: { width: 11, length: 33, deck: 2.8, hull: 3.15, radius: 6.3 },
+    ramship: { width:3.7,length:22,deck:1.8,hull:2.2,radius:3.2 },
     carrier: { width: 12, length: 35, deck: 3.5, hull: 3.9, radius: 6.6 },
     submarine: { width: 3.6, length: 23, deck: .7, hull: 2.3, radius: 2.1 },
   };
   const s = { ...sizes[key] };
   const root = new THREE.Group();
   root.name = key;
-  const muzzleOffsets = [], smokeOffsets = [], ownedMaterials = [], ownedTextures = [];
+  const muzzleOffsets = [], smokeOffsets = [], turrets=[], ownedMaterials = [], ownedTextures = [];
   const weakMaterial = new THREE.MeshStandardMaterial({
     color: 0x86392b, emissive: 0x551404, emissiveIntensity: .72,
     metalness: .57, roughness: .56,
@@ -139,6 +140,7 @@ export function createWarship(kind, kit) {
 
   function turret(x, z, y, scale, barrels, length, direction = 1) {
     const g = new THREE.Group(); g.position.set(x, y, z); root.add(g);
+    const aiming={group:g,muzzles:[]};turrets.push(aiming);
     if (direction < 0) g.rotation.y = Math.PI;
     const width = scale * (barrels === 3 ? 2.8 : barrels === 2 ? 2.35 : 1.65);
     cylinder(g, width * .51, width * .57, .42 * scale, 0, .21 * scale, 0, darkSteel, 12);
@@ -162,6 +164,7 @@ export function createWarship(kind, kit) {
       sleeve.rotation.x = Math.PI / 2;
       minor(ring(g, .105 * scale, .025 * scale, bx, 1.03 * scale + length * .0125, .58 * scale + length, edgeSteel));
       muzzleOffsets.push(new THREE.Vector3(x + bx * direction, y + 1.03 * scale + length * .0125, z + direction * (.58 * scale + length)));
+      aiming.muzzles.push({index:muzzleOffsets.length-1,local:new THREE.Vector3(bx,1.03*scale+length*.0125,.58*scale+length)});
     }
   }
 
@@ -181,7 +184,22 @@ export function createWarship(kind, kit) {
   }
 
   let weakOffset;
-  if (key === 'destroyer') {
+  if (key === 'ramship') {
+    // An armored prow and exposed drive machinery distinguish the unarmed
+    // rammer from destroyers before it reaches collision distance.
+    house(2.5,1.65,4.5,0,s.deck+.83,-1.0);
+    house(1.9,.70,2.4,0,s.deck+2.0,-.8);
+    funnel(0,-4.3,.43,3.3);funnel(0,-6.0,.40,3.0);
+    mast(.4,-2.0,s.deck+2.25,2.9);
+    const prow=new THREE.Shape();prow.moveTo(-1.5,4.3);prow.lineTo(-1.1,8.9);prow.lineTo(0,14.0);prow.lineTo(1.1,8.9);prow.lineTo(1.5,4.3);prow.closePath();
+    const armor=mesh(new THREE.ExtrudeGeometry(prow,{depth:1.5,bevelEnabled:true,bevelSize:.08,bevelThickness:.08,bevelSegments:1,steps:1}),edgeSteel,root,0,2.05,0);armor.rotation.x=Math.PI/2;armor.name='armored-ram-prow';
+    for(const side of [-1,1]){
+      const brace=box(root,.27,.85,8.8,side*.85,1.4,7.6,darkSteel);brace.rotation.y=side*-.105;
+      rail(side*1.6,-2.0,11,s.deck);box(root,.58,.6,3.9,side*1.13,s.deck+.32,-4.8,darkSteel);
+    }
+    weakOffset=weakEngine(0,s.deck+.8,2.3,1.6);
+    root.userData.ramming=true;
+  } else if (key === 'destroyer') {
     // Low bridge, two slim funnels, two single guns: a narrow escort profile.
     house(1.95, 1.3, 3.3, 0, s.deck + .65, -.3);
     house(1.7, 1.0, 1.6, 0, s.deck + 1.75, .65);
@@ -310,7 +328,8 @@ export function createWarship(kind, kit) {
     const ratio = kind === 'carrier3' ? .86 : 1.16;
     root.scale.set(ratio, 1, ratio);
   }
-  return { root, weakOffset, muzzleOffsets, smokeOffsets, hitRadius: s.radius,
-    ownedMaterials, ownedTextures, hullLength: s.length, hullWidth: s.width,
+  return { root, weakOffset, muzzleOffsets, smokeOffsets, turrets, hitRadius: s.radius,
+    ownedMaterials, ownedTextures, hullLength: key==='ramship'?28.2:s.length, hullWidth: s.width,
+    ...(key==='ramship'?{ramBowOffset:new THREE.Vector3(0,.9,14.05)}:{}),
     markerHeight: key === 'battleship' ? 13 : key === 'carrier' ? 12 : key === 'cruiser' ? 11 : 9 };
 }
