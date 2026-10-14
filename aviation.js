@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { aviationStats } from './campaign.js?v=asahi-v9.2';
+import { aviationStats } from './campaign.js?v=asahi-v9.2-final';
 
 const ROLES = ['interceptor', 'bomber', 'fighter'];
 const CAPACITIES = [6, 12, 24, 36, 60];

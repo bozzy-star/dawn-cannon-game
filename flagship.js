@@ -1,4 +1,4 @@
-import { createAviationDeck } from './aviation-deck.js?v=asahi-v9.2';
+import { createAviationDeck } from './aviation-deck.js?v=asahi-v9.2-final';
 // Code-built naval geometry: long bow, pagoda bridge and a shared expanding turret.
 export function buildFlagship(kit) {
   const {THREE,steel:baseSteel,darkSteel:baseDarkSteel,edgeSteel:baseEdgeSteel,wood:baseWood,black,bronze,box,cylinder,ring,mesh}=kit;

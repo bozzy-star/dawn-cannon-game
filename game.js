@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { CannonAudio } from './audio.js?v=asahi-v9.2';
-import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore, AIRCRAFT_TYPES, AVIATION_CONVERSION, aviationStats, CONSUMPTION_MULTIPLIER } from './campaign.js?v=asahi-v9.2';
-import { createWarship } from './enemies.js?v=asahi-v9.2';
-import { NavalThreats, createAuxiliaryMounts, getAirBalance } from './threats.js?v=asahi-v9.2';
-import { Battlefield } from './battlefield.js?v=asahi-v9.2';
-import { buildFlagship } from './flagship.js?v=asahi-v9.2';
-import { NavalAviation } from './aviation.js?v=asahi-v9.2';
+import { CannonAudio } from './audio.js?v=asahi-v9.2-final';
+import { AREAS, ENEMY_TYPES, UPGRADES, CONSUMABLES, WORLD, CampaignStore, AIRCRAFT_TYPES, AVIATION_CONVERSION, aviationStats, CONSUMPTION_MULTIPLIER } from './campaign.js?v=asahi-v9.2-final';
+import { createWarship } from './enemies.js?v=asahi-v9.2-final';
+import { NavalThreats, createAuxiliaryMounts, getAirBalance } from './threats.js?v=asahi-v9.2-final';
+import { Battlefield } from './battlefield.js?v=asahi-v9.2-final';
+import { buildFlagship } from './flagship.js?v=asahi-v9.2-final';
+import { NavalAviation } from './aviation.js?v=asahi-v9.2-final';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -397,7 +397,7 @@ function renderAviationShop(){
   $('airAllocation').innerHTML=Object.entries(AIRCRAFT_TYPES).map(([kind,type])=>`<div class="air-allocation-row"><label for="air-count-${kind}">${type.name}</label><input id="air-count-${kind}" data-air-role="${kind}" type="range" min="0" max="${capacity-(assigned-a.loadout[kind])}" step="1" value="${a.loadout[kind]}" aria-label="${type.name}の搭載数" ${a.converted?'':'disabled'}><output>${a.loadout[kind]}機</output></div>`).join('');
 }
 function applyAviationResult(result){if(!result)return;syncAuxiliary();renderHarbor();$('shopMessage').textContent=result.reason;audio.unlock();if(result.ok)audio.morse('OK');}
-function launchAirWing(){if(uiMode!=='battle'||finished)return false;audio.unlock();const result=aviation.launch(enemies);if(result.reason)toast(result.reason,1.8);return result.ok;}
+function launchAirWing(){if(uiMode!=='battle'||finished||tutorial?.holding)return false;audio.unlock();const result=aviation.launch(enemies);if(result.reason)toast(result.reason,1.8);return result.ok;}
 function gunRequirementFocus(requirements){
   const guns=campaign.state.guns;const deficit=g=>Math.max(0,(requirements.weapon||0)-g.weapon)*2+Math.max(0,(requirements.gunPower||0)-g.power)+Math.max(0,(requirements.reload||0)-g.reload);
   return guns.reduce((best,g,i)=>deficit(g)<deficit(guns[best])?i:best,0);
@@ -929,7 +929,7 @@ function updateTacticalHUD(){
   $('tactical').classList.toggle('hidden',uiMode!=='battle'&&uiMode!=='pause');
   const a=state.aviation,wing=aviation.stats,hybrid=a.converted&&a.hullMode==='hybrid';
   $('airWingControl').classList.toggle('hidden',!hybrid||(uiMode!=='battle'&&uiMode!=='pause'));
-  $('launchAir').disabled=uiMode!=='battle'||stock.fuel<15||stock.aviation<5||!wing.ready;
+  $('launchAir').disabled=uiMode!=='battle'||!!tutorial?.holding||stock.fuel<15||stock.aviation<5||!wing.ready;
   $('launchAir').textContent=stock.aviation<5?'航空弾なし':stock.fuel<15?'燃料不足':'航空隊発艦';
   $('airWingStatus').textContent=`飛行 ${wing.active}機 · 待機 ${wing.ready}機 · 喪失 ${wing.losses}機`;
   if(hybrid)$('threatStatus').textContent+=` · 味方 ${wing.active}機 / 航空弾 ${stock.aviation}`;
