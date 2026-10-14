@@ -20,11 +20,11 @@ export function getAirBalance(area, upgrades = {}) {
   if (Number(area.id) === 2) return { configured: true, areaId: 2, part, aaLevel, radarLevel,
     maxAirborne: 60, launchFactor: 1, launchInterval: 44, launchJitter: 4,
     missionBudget: 120, maxPasses: 1 };
-  const caps = [[4,4,5,6,6], [6,8,10,12,14], [9,14,18,22,26], [12,20,28,36,48]];
+  const caps = [[5,5,6,7,7], [8,10,12,15,17], [11,17,22,27,32], [15,24,34,44,58]];
   const radarControl = aaLevel === 3 && radarLevel === 3;
   return { configured: true, areaId: Number(area.id) || null, part, aaLevel, radarLevel,
-    maxAirborne: Math.min(MAX_AIRCRAFT, Math.round(caps[aaLevel][part - 1] * (radarControl ? 1.25 : 1))),
-    launchFactor: radarControl ? 1 : [.30,.45,.65,.85][aaLevel],
+    maxAirborne: Math.min(72, Math.round(caps[aaLevel][part - 1] * (radarControl ? 1.25 : 1))),
+    launchFactor: [.35,.60,.75,1][aaLevel],
     launchInterval: [48,44,38,32][aaLevel], launchJitter: 4, missionBudget: null, maxPasses: null };
 }
 
@@ -378,6 +378,7 @@ export class NavalThreats {
   }
   get stats() {
     const balance = this._airBalance();
+    const incoming = this._incomingBombs();
     return { airborne: this.aircraft.length, pending: this.pending, airKills: this.airKills,
       aircraftLaunched: this.aircraftLaunched, aircraftEscaped: this.aircraftEscaped,
       airLimit: balance.maxAirborne, airBudget: balance.missionBudget,
@@ -385,7 +386,32 @@ export class NavalThreats {
       aaRange: Math.round(this._aaRange() * METRES_PER_UNIT), aaTargetId: this.aaTargetId, aaShots: this.aaShots, aaCooldown: this.aaCooldown, aaActive: this.projectiles.filter(p => p.kind === 'aa').length, mines: this.mines.length,
       sonarOn: this.sonarOn, sonarMode: this.sonarMode, sonarReady: this.buoyDeployed,
       aswCooldown: this.aswCooldown, aswActive: this.projectiles.filter(p => p.kind === 'asw').length, subCount: this.contacts.length,
-      bombs: this.bombs.length, torpedoes: this.torpedoes.length };
+      bombs: this.bombs.length, incomingBombs: incoming.count, nearestBombETA: incoming.eta,
+      nearestBombDistance: incoming.distance, torpedoes: this.torpedoes.length };
+  }
+
+  _incomingBombs() {
+    const raw = this.getManeuver() || {}, position = raw.position || ORIGIN, velocity = raw.velocity || ORIGIN;
+    const weather = this.getWeather() || {};
+    let count = 0, eta = Infinity, distance = null;
+    for (const bomb of this.bombs) {
+      // Physical vertical fall: y + vy*t - 9*t*t = 1.5, with the same
+      // horizontal wind acceleration as the live bomb update below.
+      const height = Math.max(0, bomb.mesh.position.y - 1.5);
+      const fall = (bomb.velocity.y + Math.sqrt(bomb.velocity.y * bomb.velocity.y + 36 * height)) / 18;
+      const seconds = Math.max(0, Math.min(fall, bomb.life));
+      const x = bomb.mesh.position.x + (bomb.velocity.x - velocity.x) * seconds + (weather.windX || 0) * .15 * seconds * seconds - position.x;
+      const z = bomb.mesh.position.z + (bomb.velocity.z - velocity.z) * seconds + (weather.windZ || 0) * .15 * seconds * seconds - position.z;
+      // A small safety margin warns of near misses without reporting bombs
+      // aimed at another location as an immediate threat to the ship.
+      if (Math.abs(x) > 18 || z < -35 || z > 33) continue;
+      count++;
+      if (seconds < eta) {
+        eta = seconds;
+        distance = Math.round(Math.hypot(bomb.mesh.position.x - position.x, bomb.mesh.position.z - position.z) * METRES_PER_UNIT);
+      }
+    }
+    return { count, eta: count ? eta : null, distance };
   }
 
   _killAircraft(index, reward = true) {

@@ -140,8 +140,14 @@ body:has(#reviewPanel:not(.hidden)) #controls,body:has(#reviewPanel:not(.hidden)
 /* v6: full-size sea view, direct controls and independent main guns. */
 #radarScope{display:none!important}
 #tactical{width:min(490px,calc(100% - 48px));bottom:calc(130px + env(safe-area-inset-bottom));background:transparent;border:0;padding:0;box-shadow:none}
-.tactical-primary{grid-template-columns:repeat(3,minmax(0,1fr))}
-#tactical .tactical-primary button{min-height:44px;font-size:12px;letter-spacing:1px}
+.tactical-primary{grid-template-columns:repeat(5,minmax(0,1fr))}
+#tactical .tactical-primary button{min-width:0;min-height:44px;padding:4px 3px;font-size:10px;line-height:1.3;letter-spacing:0;white-space:normal;overflow-wrap:anywhere}
+#tactical .tactical-primary button:disabled{opacity:1;background:#34474fe8;box-shadow:none;cursor:default}
+#tactical :is(#evadeRight,#speedDown,#speedButton,#speedUp,#evadeLeft):disabled{color:#d0d8d9;border-color:#82949b}
+#tactical #speedButton:disabled{border-style:dashed;color:#f1e6cc}
+#tactical #evadeRight.evade-alert:not(:disabled),#tactical #evadeLeft.evade-alert:not(:disabled){color:#fff2d5;border-color:#ffc18a;background:#793a2be8;animation:evadeAlertPulse .48s ease-in-out infinite}
+#threatStatus.evade-alert{color:#ffe5c3;border:1px solid #ffa671;background:#6a3028e6;animation:evadeAlertPulse .48s ease-in-out infinite}
+@keyframes evadeAlertPulse{50%{box-shadow:0 0 15px #ff9d62aa,inset 0 0 0 1px #ffd7a9}}
 #directTactical{display:flex;gap:5px;align-items:stretch;margin-top:6px;flex-wrap:wrap}
 #directTactical button,#directTactical label{min-height:38px;min-width:68px;flex:1;padding:6px;font-size:10px;line-height:1.4;border:1px solid #66879588;border-radius:3px;background:#132833d9;display:flex;align-items:center;justify-content:center;gap:5px}
 #directTactical label{flex:0 1 auto}#directTactical #contact{flex:1.6;min-width:100px}
@@ -202,7 +208,7 @@ body:has(#reviewPanel:not(.hidden)) #rotate{display:none}
 .tutorial-guide small{font-size:9px;letter-spacing:2px;color:#d8bd83}.tutorial-guide h2{font-size:17px;line-height:1.45;margin:7px 0}.tutorial-guide p{font-size:12px;line-height:1.7;color:#d5dce0;margin:0 0 8px}.tutorial-guide button{min-height:44px;width:100%;padding:10px;border:1px solid #e8cc87;background:#d4b776;color:#14202b;font-weight:700}
 .tutorial-target{animation:tutorialPulse 1.1s ease-in-out infinite!important;outline:2px solid #ffe0a3;outline-offset:3px}
 @keyframes tutorialPulse{50%{box-shadow:0 0 24px #ffd679aa,0 0 0 5px #ffd67944}}
-@media(orientation:portrait){.tutorial-guide{left:12px;right:12px;top:92px;width:auto}.tutorial-guide h2{font-size:16px}.tutorial-guide p{font-size:11px}}
-@media(max-height:500px) and (orientation:landscape){.tutorial-guide{top:83px;right:12px;width:min(300px,35vw);padding:10px 12px}.tutorial-guide h2{font-size:14px;margin:4px 0}.tutorial-guide p{font-size:11px;line-height:1.5;margin-bottom:6px}}
-@media(prefers-reduced-motion:reduce){.tutorial-target{animation:none!important}}
+@media(orientation:portrait){.tutorial-guide{left:12px;right:12px;top:92px;width:auto;max-height:210px;display:flex;flex-direction:column;overflow:hidden}.tutorial-guide small,.tutorial-guide h2,.tutorial-guide button{flex-shrink:0}.tutorial-guide h2{font-size:16px}.tutorial-guide p{font-size:11px;min-height:0;flex:1 1 auto;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch}.tutorial-guide button{min-height:44px}}
+@media(max-height:500px) and (orientation:landscape){.tutorial-guide{top:83px;left:16px;right:auto;width:min(300px,35vw);padding:10px 12px}.tutorial-guide h2{font-size:14px;margin:4px 0}.tutorial-guide p{font-size:11px;line-height:1.5;margin-bottom:6px}}
+@media(prefers-reduced-motion:reduce){.tutorial-target{animation:none!important}#tactical #evadeRight.evade-alert,#tactical #evadeLeft.evade-alert,#threatStatus.evade-alert{animation:none}}
 .enemy-marker.ram-threat span{color:#ffb0a0;text-shadow:0 0 8px #d83a20,0 2px 2px #000}.enemy-marker.ram-threat .enemy-hp{border-color:#ef7156}
